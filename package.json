@@ -1,0 +1,11 @@
+{
+  "name": "red-cross-donor-companion",
+  "private": true,
+  "scripts": {
+    "api": "dotnet run --project backend/src/Api --launch-profile http",
+    "web": "npm --prefix frontend start",
+    "build:web": "npm --prefix frontend run build",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
+  }
+}
