@@ -4,42 +4,83 @@
 
 :root {
   color-scheme: light;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ring: #c8102e;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: #f8fafc;
-  color: #0f172a;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(200, 16, 46, 0.08), transparent 55%),
+    #f7f3ee;
+  color: #1c1917;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+.font-display {
+  font-family: Fraunces, Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(200, 16, 46, 0.18);
 }
 
 @layer components {
   .card {
-    @apply rounded-2xl bg-white p-5 shadow-card;
+    @apply rounded-2xl border border-line bg-paper p-5 shadow-card;
   }
 
   .btn {
-    @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
+      disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-primary {
-    @apply btn bg-primary text-white hover:bg-red-700 focus:ring-red-300;
+    @apply btn bg-primary text-white hover:bg-red-800;
   }
 
   .btn-secondary {
-    @apply btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 focus:ring-slate-200;
+    @apply btn border border-line bg-paper text-ink hover:bg-white;
   }
 
   .btn-accent {
-    @apply btn bg-accent text-white hover:bg-blue-700 focus:ring-blue-300;
+    @apply btn bg-accent text-white hover:bg-teal-800;
   }
 
   .input {
-    @apply w-full rounded-xl border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm focus:border-primary focus:ring-primary;
+    @apply w-full rounded-xl border-line bg-white px-3 py-2.5 text-sm text-ink shadow-sm
+      placeholder:text-stone-400
+      focus:border-primary focus:ring-primary;
   }
 
   .label {
-    @apply mb-1.5 block text-sm font-medium text-slate-700;
+    @apply mb-1.5 block text-sm font-semibold text-ink;
+  }
+
+  .nav-link {
+    @apply rounded-lg px-2 py-1 text-sm font-medium text-muted transition hover:text-primary
+      focus-visible:ring-2 focus-visible:ring-primary;
+  }
+
+  .nav-link.active {
+    @apply text-primary;
+  }
+
+  .state-box {
+    @apply rounded-2xl border border-line bg-paper px-4 py-6 text-sm text-muted;
   }
 }

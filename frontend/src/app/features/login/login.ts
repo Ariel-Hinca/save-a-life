@@ -8,15 +8,15 @@ import { AuthService } from '../../core/auth/auth.service';
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink],
   template: `
-    <div class="flex min-h-screen items-center justify-center bg-surface px-4 py-10">
+    <div class="flex min-h-screen items-center justify-center px-4 py-10">
       <div class="w-full max-w-md">
-        <a routerLink="/" class="mb-6 inline-flex items-center gap-2 font-bold text-primary">
-          <span class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white">+</span>
+        <a routerLink="/" class="mb-6 inline-flex items-center gap-2 font-semibold text-ink">
+          <span class="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-display text-white">+</span>
           Donor Companion
         </a>
         <div class="card">
-          <h1 class="text-2xl font-bold text-slate-900">Welcome back</h1>
-          <p class="mt-1 text-sm text-slate-500">Sign in to continue your donor journey.</p>
+          <h1 class="font-display text-3xl font-bold text-ink">Welcome back</h1>
+          <p class="mt-1 text-sm text-muted">Sign in to continue your donor journey.</p>
 
           <form class="mt-6 space-y-4" [formGroup]="form" (ngSubmit)="submit()">
             <div>
@@ -35,7 +35,9 @@ import { AuthService } from '../../core/auth/auth.service';
             </div>
 
             @if (error()) {
-              <div class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{{ error() }}</div>
+              <div class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+                {{ error() }}
+              </div>
             }
 
             <button class="btn-primary w-full" type="submit" [disabled]="form.invalid || loading()">
@@ -43,12 +45,12 @@ import { AuthService } from '../../core/auth/auth.service';
             </button>
           </form>
 
-          <p class="mt-4 text-center text-sm text-slate-500">
+          <p class="mt-4 text-center text-sm text-muted">
             No account?
             <a routerLink="/register" class="font-semibold text-primary">Create Account</a>
           </p>
-          <p class="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-            Demo: <span class="font-medium text-slate-700">donor&#64;demo.be</span> / Demo123!
+          <p class="mt-3 rounded-xl bg-surface p-3 text-xs text-muted">
+            Demo: <span class="font-medium text-ink">donor&#64;demo.be</span> / Demo123!
           </p>
         </div>
       </div>
