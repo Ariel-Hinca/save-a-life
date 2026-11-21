@@ -4,13 +4,21 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: '#DC2626',
-        accent: '#2563EB',
-        success: '#16A34A',
-        surface: '#F8FAFC',
+        primary: '#C8102E',
+        ink: '#1C1917',
+        muted: '#78716C',
+        accent: '#0F766E',
+        success: '#15803D',
+        surface: '#F7F3EE',
+        paper: '#FFFCFA',
+        line: '#E7E0D8',
+      },
+      fontFamily: {
+        display: ['Fraunces', 'Georgia', 'serif'],
+        sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        card: '0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04)',
+        card: '0 1px 0 rgba(28, 25, 23, 0.04), 0 12px 32px -16px rgba(28, 25, 23, 0.18)',
       },
     },
   },

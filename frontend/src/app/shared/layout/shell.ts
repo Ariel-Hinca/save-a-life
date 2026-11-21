@@ -1,34 +1,35 @@
 import { Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
-import { NgClass } from '@angular/common';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, NgClass],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <div class="min-h-screen bg-surface pb-24 md:pb-8">
-      <header class="sticky top-0 z-20 border-b border-red-100 bg-white/90 backdrop-blur">
+    <div class="min-h-screen pb-24 md:pb-8">
+      <header class="sticky top-0 z-20 border-b border-line bg-paper/90 backdrop-blur">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <a routerLink="/dashboard" class="flex items-center gap-2 font-bold text-primary">
-            <span class="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white">+</span>
+          <a routerLink="/dashboard" class="flex items-center gap-2 font-semibold text-ink">
+            <span
+              class="flex h-9 w-9 items-center justify-center rounded-full bg-primary font-display text-white"
+              aria-hidden="true"
+              >+</span
+            >
             <span>Donor Companion</span>
           </a>
-          <div class="hidden items-center gap-4 md:flex">
+          <nav class="hidden items-center gap-1 md:flex" aria-label="Main">
             @for (item of nav; track item.path) {
               <a
                 [routerLink]="item.path"
-                routerLinkActive="text-primary"
-                class="text-sm font-medium text-slate-600 hover:text-primary"
+                routerLinkActive="active"
+                class="nav-link"
                 >{{ item.label }}</a
               >
             }
-            <button class="btn-secondary" type="button" (click)="logout()">Logout</button>
-          </div>
-          <div class="text-sm font-semibold text-slate-700 md:hidden">
-            {{ greeting() }}
-          </div>
+            <button class="btn-secondary ml-2" type="button" (click)="logout()">Logout</button>
+          </nav>
+          <div class="text-sm font-semibold text-ink md:hidden">{{ greeting() }}</div>
         </div>
       </header>
 
@@ -37,16 +38,17 @@ import { NgClass } from '@angular/common';
       </main>
 
       <nav
-        class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden"
+        class="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-paper/95 backdrop-blur md:hidden"
+        aria-label="Mobile"
       >
         <div class="mx-auto grid max-w-lg grid-cols-5 gap-1 px-2 py-2">
           @for (item of mobileNav; track item.path) {
             <a
               [routerLink]="item.path"
               routerLinkActive="text-primary"
-              class="flex flex-col items-center rounded-xl px-1 py-2 text-[11px] font-medium text-slate-500"
+              class="flex flex-col items-center rounded-xl px-1 py-2 text-[11px] font-semibold text-muted focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <span class="mb-1 text-lg" [ngClass]="item.iconClass">{{ item.icon }}</span>
+              <span class="mb-1 text-base" aria-hidden="true">{{ item.icon }}</span>
               {{ item.label }}
             </a>
           }
@@ -73,11 +75,11 @@ export class ShellComponent {
   ];
 
   readonly mobileNav = [
-    { path: '/dashboard', label: 'Home', icon: '⌂', iconClass: '' },
-    { path: '/donations', label: 'History', icon: '☰', iconClass: '' },
-    { path: '/scan', label: 'Scan', icon: '◉', iconClass: '' },
-    { path: '/stats', label: 'Stats', icon: '▦', iconClass: '' },
-    { path: '/profile', label: 'Profile', icon: '☺', iconClass: '' },
+    { path: '/dashboard', label: 'Home', icon: '⌂' },
+    { path: '/donations', label: 'History', icon: '☰' },
+    { path: '/scan', label: 'Scan', icon: '◉' },
+    { path: '/stats', label: 'Stats', icon: '▦' },
+    { path: '/profile', label: 'Profile', icon: '☺' },
   ];
 
   logout(): void {
