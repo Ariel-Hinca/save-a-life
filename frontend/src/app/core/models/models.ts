@@ -41,6 +41,16 @@ export interface OcrScanResponse {
   donationType: string;
   center: string;
   confidence: number;
+  detectedLanguage?: string;
+  hemoglobin?: number | null;
+  hematocrit?: number | null;
+  redBloodCells?: number | null;
+  whiteBloodCells?: number | null;
+  platelets?: number | null;
+  ferritin?: number | null;
+  bloodPressure?: string | null;
+  weight?: number | null;
+  notes?: string;
 }
 
 export interface AchievementProgress {

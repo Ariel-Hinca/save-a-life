@@ -10,6 +10,8 @@ import {
   LucideUserRound,
 } from '@lucide/angular';
 import { AuthService } from '../../core/auth/auth.service';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { LanguageSwitcherComponent } from '../language-switcher';
 
 @Component({
   selector: 'app-shell',
@@ -25,49 +27,56 @@ import { AuthService } from '../../core/auth/auth.service';
     LucideUserRound,
     LucideFlaskConical,
     LucideLogOut,
+    LanguageSwitcherComponent,
   ],
   template: `
     <div class="min-h-screen pb-24 md:pb-8">
       <header class="sticky top-0 z-20 border-b border-line bg-paper/90 backdrop-blur">
-        <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
           <a routerLink="/dashboard" class="flex items-center gap-2 font-semibold text-ink">
             <span class="icon-chip" aria-hidden="true">
               <svg lucideDroplet [size]="18" strokeWidth="2"></svg>
             </span>
-            <span>Donor Companion</span>
+            <span>{{ i18n.t('appName') }}</span>
           </a>
-          <nav class="hidden items-center gap-1 md:flex" aria-label="Main">
-            @for (item of nav; track item.path) {
-              <a [routerLink]="item.path" routerLinkActive="active" class="nav-link inline-flex items-center gap-1.5">
-                @switch (item.icon) {
-                  @case ('home') {
-                    <svg lucideHouse [size]="16" strokeWidth="2"></svg>
+          <div class="hidden items-center gap-2 md:flex">
+            <nav class="flex items-center gap-1" aria-label="Main">
+              @for (item of nav(); track item.path) {
+                <a [routerLink]="item.path" routerLinkActive="active" class="nav-link inline-flex items-center gap-1.5">
+                  @switch (item.icon) {
+                    @case ('home') {
+                      <svg lucideHouse [size]="16" strokeWidth="2"></svg>
+                    }
+                    @case ('droplet') {
+                      <svg lucideDroplet [size]="16" strokeWidth="2"></svg>
+                    }
+                    @case ('scan') {
+                      <svg lucideScanLine [size]="16" strokeWidth="2"></svg>
+                    }
+                    @case ('flask') {
+                      <svg lucideFlaskConical [size]="16" strokeWidth="2"></svg>
+                    }
+                    @case ('chart') {
+                      <svg lucideChartColumn [size]="16" strokeWidth="2"></svg>
+                    }
+                    @case ('user') {
+                      <svg lucideUserRound [size]="16" strokeWidth="2"></svg>
+                    }
                   }
-                  @case ('droplet') {
-                    <svg lucideDroplet [size]="16" strokeWidth="2"></svg>
-                  }
-                  @case ('scan') {
-                    <svg lucideScanLine [size]="16" strokeWidth="2"></svg>
-                  }
-                  @case ('flask') {
-                    <svg lucideFlaskConical [size]="16" strokeWidth="2"></svg>
-                  }
-                  @case ('chart') {
-                    <svg lucideChartColumn [size]="16" strokeWidth="2"></svg>
-                  }
-                  @case ('user') {
-                    <svg lucideUserRound [size]="16" strokeWidth="2"></svg>
-                  }
-                }
-                {{ item.label }}
-              </a>
-            }
-            <button class="btn-secondary ml-2 inline-flex items-center gap-2" type="button" (click)="logout()">
+                  {{ item.label }}
+                </a>
+              }
+            </nav>
+            <app-language-switcher />
+            <button class="btn-secondary inline-flex items-center gap-2" type="button" (click)="logout()">
               <svg lucideLogOut [size]="16" strokeWidth="2"></svg>
-              Logout
+              {{ i18n.t('logout') }}
             </button>
-          </nav>
-          <div class="text-sm font-semibold text-ink md:hidden">{{ greeting() }}</div>
+          </div>
+          <div class="flex items-center gap-2 md:hidden">
+            <app-language-switcher />
+            <div class="text-sm font-semibold text-ink">{{ greeting() }}</div>
+          </div>
         </div>
       </header>
 
@@ -80,7 +89,7 @@ import { AuthService } from '../../core/auth/auth.service';
         aria-label="Mobile"
       >
         <div class="mx-auto grid max-w-lg grid-cols-5 gap-1 px-2 py-2">
-          @for (item of mobileNav; track item.path) {
+          @for (item of mobileNav(); track item.path) {
             <a
               [routerLink]="item.path"
               routerLinkActive="text-primary"
@@ -113,28 +122,29 @@ import { AuthService } from '../../core/auth/auth.service';
 })
 export class ShellComponent {
   private readonly auth = inject(AuthService);
+  readonly i18n = inject(I18nService);
 
   readonly greeting = computed(() => {
     const user = this.auth.user();
-    return user ? `Hi, ${user.firstName}` : 'Donor';
+    return user ? `${this.i18n.t('welcomeBack')}, ${user.firstName}` : 'Donor';
   });
 
-  readonly nav = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'home' },
-    { path: '/donations', label: 'Donations', icon: 'droplet' },
-    { path: '/scan', label: 'Scan', icon: 'scan' },
-    { path: '/results', label: 'Results', icon: 'flask' },
-    { path: '/stats', label: 'Stats', icon: 'chart' },
-    { path: '/profile', label: 'Profile', icon: 'user' },
-  ];
+  readonly nav = computed(() => [
+    { path: '/dashboard', label: this.i18n.t('dashboard'), icon: 'home' },
+    { path: '/donations', label: this.i18n.t('donations'), icon: 'droplet' },
+    { path: '/scan', label: this.i18n.t('scan'), icon: 'scan' },
+    { path: '/results', label: this.i18n.t('results'), icon: 'flask' },
+    { path: '/stats', label: this.i18n.t('stats'), icon: 'chart' },
+    { path: '/profile', label: this.i18n.t('profile'), icon: 'user' },
+  ]);
 
-  readonly mobileNav = [
-    { path: '/dashboard', label: 'Home', icon: 'home' },
-    { path: '/donations', label: 'History', icon: 'droplet' },
-    { path: '/scan', label: 'Scan', icon: 'scan' },
-    { path: '/stats', label: 'Stats', icon: 'chart' },
-    { path: '/profile', label: 'Profile', icon: 'user' },
-  ];
+  readonly mobileNav = computed(() => [
+    { path: '/dashboard', label: this.i18n.t('home'), icon: 'home' },
+    { path: '/donations', label: this.i18n.t('history'), icon: 'droplet' },
+    { path: '/scan', label: this.i18n.t('scan'), icon: 'scan' },
+    { path: '/stats', label: this.i18n.t('stats'), icon: 'chart' },
+    { path: '/profile', label: this.i18n.t('profile'), icon: 'user' },
+  ]);
 
   logout(): void {
     this.auth.logout();

@@ -91,4 +91,17 @@ h2,
   .icon-chip-dark {
     @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-paper;
   }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
+
