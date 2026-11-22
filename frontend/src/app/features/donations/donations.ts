@@ -1,21 +1,26 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { LucideDroplet, LucideMapPin, LucidePlus, LucideTrash } from '@lucide/angular';
 import { ApiService } from '../../core/services/api.service';
 import { Donation } from '../../core/models/models';
 
 @Component({
   selector: 'app-donations',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule],
+  imports: [DatePipe, ReactiveFormsModule, LucidePlus, LucideDroplet, LucideMapPin, LucideTrash],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 class="text-3xl font-bold">Donation history</h1>
-          <p class="text-slate-500">Every drop counts. Review and add donations manually.</p>
+          <h1 class="flex items-center gap-2 font-display text-3xl font-bold text-ink">
+            <svg lucideDroplet [size]="28" strokeWidth="2"></svg>
+            Donation history
+          </h1>
+          <p class="text-muted">Every drop counts. Review and add donations manually.</p>
         </div>
-        <button class="btn-primary" type="button" (click)="showForm.set(!showForm())">
+        <button class="btn-primary inline-flex items-center gap-2" type="button" (click)="showForm.set(!showForm())">
+          <svg lucidePlus [size]="16" strokeWidth="2"></svg>
           {{ showForm() ? 'Close form' : 'Add donation' }}
         </button>
       </div>
@@ -49,9 +54,10 @@ import { Donation } from '../../core/models/models';
       }
 
       @if (loading()) {
-        <div class="card text-slate-500">Loading donations…</div>
+        <div class="state-box" role="status">Loading donations…</div>
       } @else if (!donations().length) {
-        <div class="card text-center text-slate-500">
+        <div class="state-box flex flex-col items-center gap-3 text-center">
+          <span class="icon-chip"><svg lucideDroplet [size]="18" strokeWidth="2"></svg></span>
           No donations yet. Scan a document or add one manually.
         </div>
       } @else {
@@ -59,20 +65,31 @@ import { Donation } from '../../core/models/models';
           @for (d of donations(); track d.id) {
             <article class="card">
               <div class="flex items-start justify-between gap-3">
-                <div>
-                  <div class="text-lg font-bold text-slate-900">{{ d.donationType }}</div>
-                  <div class="text-sm text-slate-500">{{ d.donationDate | date: 'MMMM d y' }}</div>
+                <div class="flex items-start gap-3">
+                  <span class="icon-chip"><svg lucideDroplet [size]="18" strokeWidth="2"></svg></span>
+                  <div>
+                    <div class="text-lg font-bold text-ink">{{ d.donationType }}</div>
+                    <div class="text-sm text-muted">{{ d.donationDate | date: 'd MMMM y' }}</div>
+                  </div>
                 </div>
                 <span class="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-success">{{
                   d.status
                 }}</span>
               </div>
-              <div class="mt-4 space-y-1 text-sm text-slate-600">
-                <div>{{ d.location || 'Donation center' }}</div>
-                <div class="font-mono text-xs text-slate-400">{{ d.donationReference }}</div>
+              <div class="mt-4 space-y-2 text-sm text-muted">
+                <div class="flex items-center gap-2">
+                  <svg lucideMapPin [size]="14" strokeWidth="2"></svg>
+                  {{ d.location || 'Donation center' }}
+                </div>
+                <div class="font-mono text-xs">{{ d.donationReference }}</div>
                 <div>{{ d.volume }} ml</div>
               </div>
-              <button class="mt-4 text-sm font-semibold text-red-600" type="button" (click)="remove(d.id)">
+              <button
+                class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary"
+                type="button"
+                (click)="remove(d.id)"
+              >
+                <svg lucideTrash [size]="14" strokeWidth="2"></svg>
                 Delete
               </button>
             </article>

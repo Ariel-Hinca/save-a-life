@@ -2,17 +2,21 @@ import { Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@an
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { createWorker, Worker } from 'tesseract.js';
+import { LucideCamera, LucideScanLine, LucideUpload } from '@lucide/angular';
 import { ApiService } from '../../core/services/api.service';
 
 @Component({
   selector: 'app-scan',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, LucideCamera, LucideScanLine, LucideUpload],
   template: `
     <div class="space-y-6">
       <div>
-        <h1 class="text-3xl font-bold">OCR Scan</h1>
-        <p class="text-slate-500">Capture a Red Cross donation document and extract the details.</p>
+        <h1 class="flex items-center gap-2 font-display text-3xl font-bold text-ink">
+          <svg lucideScanLine [size]="28" strokeWidth="2"></svg>
+          OCR Scan
+        </h1>
+        <p class="text-muted">Capture a Red Cross donation document and extract the details.</p>
       </div>
 
       <div class="grid gap-6 lg:grid-cols-2">
@@ -32,17 +36,20 @@ import { ApiService } from '../../core/services/api.service';
           </div>
 
           <div class="flex flex-wrap gap-2">
-            <button class="btn-primary" type="button" (click)="startCamera()" [disabled]="cameraOn()">
+            <button class="btn-primary inline-flex items-center gap-2" type="button" (click)="startCamera()" [disabled]="cameraOn()">
+              <svg lucideCamera [size]="16" strokeWidth="2"></svg>
               Open camera
             </button>
             <button class="btn-secondary" type="button" (click)="capture()" [disabled]="!cameraOn()">
               Take picture
             </button>
-            <label class="btn-secondary cursor-pointer">
+            <label class="btn-secondary inline-flex cursor-pointer items-center gap-2">
+              <svg lucideUpload [size]="16" strokeWidth="2"></svg>
               Upload image
               <input class="hidden" type="file" accept="image/*" (change)="onFile($event)" />
             </label>
-            <button class="btn-accent" type="button" (click)="runOcr()" [disabled]="!imageSource() || processing()">
+            <button class="btn-accent inline-flex items-center gap-2" type="button" (click)="runOcr()" [disabled]="!imageSource() || processing()">
+              <svg lucideScanLine [size]="16" strokeWidth="2"></svg>
               {{ processing() ? 'Analyzing…' : 'OCR Analysis' }}
             </button>
           </div>

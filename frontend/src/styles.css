@@ -83,4 +83,12 @@ h2,
   .state-box {
     @apply rounded-2xl border border-line bg-paper px-4 py-6 text-sm text-muted;
   }
+
+  .icon-chip {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-surface text-primary;
+  }
+
+  .icon-chip-dark {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-paper;
+  }
 }

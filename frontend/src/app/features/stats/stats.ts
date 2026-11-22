@@ -1,6 +1,7 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { ApiService } from '../../core/services/api.service';
+import { LucideAward, LucideChartColumn, LucideHeartPulse, LucideTrophy } from '@lucide/angular';
 import { StatsSummary } from '../../core/models/models';
 
 Chart.register(...registerables);
@@ -8,11 +9,15 @@ Chart.register(...registerables);
 @Component({
   selector: 'app-stats',
   standalone: true,
+  imports: [LucideChartColumn, LucideTrophy, LucideHeartPulse, LucideAward],
   template: `
     <div class="space-y-6">
       <div>
-        <h1 class="text-3xl font-bold">Statistics</h1>
-        <p class="text-slate-500">Visualize your donation journey and achievement progress.</p>
+        <h1 class="flex items-center gap-2 font-display text-3xl font-bold text-ink">
+          <svg lucideChartColumn [size]="28" strokeWidth="2"></svg>
+          Statistics
+        </h1>
+        <p class="text-muted">Visualize your donation journey and achievement progress.</p>
       </div>
 
       @if (loading()) {
@@ -20,16 +25,19 @@ Chart.register(...registerables);
       } @else if (stats(); as s) {
         <section class="grid gap-4 sm:grid-cols-3">
           <div class="card">
-            <div class="text-xs text-slate-400">Level</div>
-            <div class="text-3xl font-bold">{{ s.donorLevel }}</div>
+            <div class="mb-2 text-primary"><svg lucideTrophy [size]="18" strokeWidth="2"></svg></div>
+            <div class="text-xs text-muted">Level</div>
+            <div class="font-display text-3xl font-bold text-ink">{{ s.donorLevel }}</div>
           </div>
           <div class="card">
-            <div class="text-xs text-slate-400">XP</div>
-            <div class="text-3xl font-bold">{{ s.xp }}</div>
+            <div class="mb-2 text-primary"><svg lucideAward [size]="18" strokeWidth="2"></svg></div>
+            <div class="text-xs text-muted">XP</div>
+            <div class="font-display text-3xl font-bold text-ink">{{ s.xp }}</div>
           </div>
           <div class="card">
-            <div class="text-xs text-slate-400">Lives helped</div>
-            <div class="text-3xl font-bold">{{ s.totalLivesHelped }}</div>
+            <div class="mb-2 text-primary"><svg lucideHeartPulse [size]="18" strokeWidth="2"></svg></div>
+            <div class="text-xs text-muted">Lives helped</div>
+            <div class="font-display text-3xl font-bold text-ink">{{ s.totalLivesHelped }}</div>
           </div>
         </section>
 

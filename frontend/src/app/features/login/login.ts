@@ -1,17 +1,20 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { LucideDroplet, LucideLock, LucideMail } from '@lucide/angular';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, LucideDroplet, LucideMail, LucideLock],
   template: `
     <div class="flex min-h-screen items-center justify-center px-4 py-10">
       <div class="w-full max-w-md">
         <a routerLink="/" class="mb-6 inline-flex items-center gap-2 font-semibold text-ink">
-          <span class="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-display text-white">+</span>
+          <span class="icon-chip" aria-hidden="true">
+            <svg lucideDroplet [size]="18" strokeWidth="2"></svg>
+          </span>
           Donor Companion
         </a>
         <div class="card">
@@ -21,17 +24,33 @@ import { AuthService } from '../../core/auth/auth.service';
           <form class="mt-6 space-y-4" [formGroup]="form" (ngSubmit)="submit()">
             <div>
               <label class="label" for="email">Email</label>
-              <input id="email" class="input" type="email" formControlName="email" autocomplete="email" />
+              <div class="relative">
+                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted">
+                  <svg lucideMail [size]="16" strokeWidth="2"></svg>
+                </span>
+                <input
+                  id="email"
+                  class="input pl-10"
+                  type="email"
+                  formControlName="email"
+                  autocomplete="email"
+                />
+              </div>
             </div>
             <div>
               <label class="label" for="password">Password</label>
-              <input
-                id="password"
-                class="input"
-                type="password"
-                formControlName="password"
-                autocomplete="current-password"
-              />
+              <div class="relative">
+                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted">
+                  <svg lucideLock [size]="16" strokeWidth="2"></svg>
+                </span>
+                <input
+                  id="password"
+                  class="input pl-10"
+                  type="password"
+                  formControlName="password"
+                  autocomplete="current-password"
+                />
+              </div>
             </div>
 
             @if (error()) {
@@ -82,7 +101,7 @@ export class LoginComponent {
       },
       error: (err) => {
         this.loading.set(false);
-        this.error.set(err?.error?.message || 'Login failed. Check your credentials.');
+        this.error.set(err?.error?.message || 'Login failed. Check your credentials and that the API is running.');
       },
     });
   }

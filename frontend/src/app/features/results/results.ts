@@ -1,21 +1,42 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  LucideActivity,
+  LucideDroplet,
+  LucideFlaskConical,
+  LucideHeartPulse,
+  LucidePlus,
+  LucideScale,
+} from '@lucide/angular';
 import { ApiService } from '../../core/services/api.service';
 import { BloodResult } from '../../core/models/models';
 
 @Component({
   selector: 'app-results',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule],
+  imports: [
+    DatePipe,
+    ReactiveFormsModule,
+    LucideFlaskConical,
+    LucidePlus,
+    LucideDroplet,
+    LucideActivity,
+    LucideHeartPulse,
+    LucideScale,
+  ],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 class="text-3xl font-bold">Blood test results</h1>
-          <p class="text-slate-500">Track hemoglobin, ferritin, blood pressure and weight over time.</p>
+          <h1 class="flex items-center gap-2 font-display text-3xl font-bold text-ink">
+            <svg lucideFlaskConical [size]="28" strokeWidth="2"></svg>
+            Blood test results
+          </h1>
+          <p class="text-muted">Track hemoglobin, ferritin, blood pressure and weight over time.</p>
         </div>
-        <button class="btn-primary" type="button" (click)="showForm.set(!showForm())">
+        <button class="btn-primary inline-flex items-center gap-2" type="button" (click)="showForm.set(!showForm())">
+          <svg lucidePlus [size]="16" strokeWidth="2"></svg>
           {{ showForm() ? 'Close' : 'Add result' }}
         </button>
       </div>
@@ -23,20 +44,41 @@ import { BloodResult } from '../../core/models/models';
       @if (latest(); as l) {
         <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div class="card">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Hemoglobin</div>
-            <div class="mt-2 text-3xl font-bold text-slate-900">{{ l.hemoglobin ?? '—' }} <span class="text-sm font-medium text-slate-400">g/dL</span></div>
+            <div class="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
+              <svg lucideDroplet [size]="14" strokeWidth="2"></svg>
+              Hemoglobin
+            </div>
+            <div class="font-display text-3xl font-bold text-ink">
+              {{ l.hemoglobin ?? '—' }}
+              <span class="text-sm font-medium text-muted">g/dL</span>
+            </div>
           </div>
           <div class="card">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Ferritin</div>
-            <div class="mt-2 text-3xl font-bold text-slate-900">{{ l.ferritin ?? '—' }} <span class="text-sm font-medium text-slate-400">µg/L</span></div>
+            <div class="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
+              <svg lucideFlaskConical [size]="14" strokeWidth="2"></svg>
+              Ferritin
+            </div>
+            <div class="font-display text-3xl font-bold text-ink">
+              {{ l.ferritin ?? '—' }}
+              <span class="text-sm font-medium text-muted">µg/L</span>
+            </div>
           </div>
           <div class="card">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Blood Pressure</div>
-            <div class="mt-2 text-3xl font-bold text-slate-900">{{ l.bloodPressure || '—' }}</div>
+            <div class="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
+              <svg lucideHeartPulse [size]="14" strokeWidth="2"></svg>
+              Blood Pressure
+            </div>
+            <div class="font-display text-3xl font-bold text-ink">{{ l.bloodPressure || '—' }}</div>
           </div>
           <div class="card">
-            <div class="text-xs uppercase tracking-wide text-slate-400">Weight</div>
-            <div class="mt-2 text-3xl font-bold text-slate-900">{{ l.weight ?? '—' }} <span class="text-sm font-medium text-slate-400">kg</span></div>
+            <div class="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
+              <svg lucideScale [size]="14" strokeWidth="2"></svg>
+              Weight
+            </div>
+            <div class="font-display text-3xl font-bold text-ink">
+              {{ l.weight ?? '—' }}
+              <span class="text-sm font-medium text-muted">kg</span>
+            </div>
           </div>
         </section>
       }
@@ -63,24 +105,29 @@ import { BloodResult } from '../../core/models/models';
             <label class="label">Weight</label>
             <input class="input" type="number" step="0.1" formControlName="weight" />
           </div>
-          <button class="btn-primary md:col-span-2" type="submit" [disabled]="form.invalid || saving()">Save result</button>
+          <button class="btn-primary md:col-span-2" type="submit" [disabled]="form.invalid || saving()">
+            Save result
+          </button>
         </form>
       }
 
       <section class="space-y-3">
-        <h2 class="text-lg font-semibold">History</h2>
+        <h2 class="flex items-center gap-2 text-lg font-semibold text-ink">
+          <svg lucideActivity [size]="18" strokeWidth="2"></svg>
+          History
+        </h2>
         @if (loading()) {
-          <div class="card text-slate-500">Loading…</div>
+          <div class="state-box" role="status">Loading…</div>
         } @else if (!results().length) {
-          <div class="card text-slate-500">No results yet. Add one or scan a document.</div>
+          <div class="state-box">No results yet. Add one or scan a document.</div>
         } @else {
           @for (r of results(); track r.id) {
             <article class="card flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div class="font-semibold">{{ r.resultDate | date: 'MMMM d y' }}</div>
-                <div class="text-sm text-slate-500">
-                  Hb {{ r.hemoglobin ?? '—' }} · Ferritin {{ r.ferritin ?? '—' }} · BP {{ r.bloodPressure || '—' }} ·
-                  {{ r.weight ?? '—' }} kg
+                <div class="font-semibold text-ink">{{ r.resultDate | date: 'd MMMM y' }}</div>
+                <div class="text-sm text-muted">
+                  Hb {{ r.hemoglobin ?? '—' }} · Ferritin {{ r.ferritin ?? '—' }} · BP
+                  {{ r.bloodPressure || '—' }} · {{ r.weight ?? '—' }} kg
                 </div>
               </div>
             </article>
