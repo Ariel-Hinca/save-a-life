@@ -1,6 +1,6 @@
 # Red Cross Donor Companion
 
-Mobile-first full-stack portfolio app that turns blood donation into a long-term journey: donation history, eligibility tracking, gamification, Chart.js stats, and Tesseract.js OCR for donation documents.
+Mobile-first full-stack portfolio app that turns blood donation into a long-term journey: donation history, eligibility tracking, gamification, Chart.js stats, and **free local OCR** for Belgian Red Cross lab letters (no paid cloud AI).
 
 > **Disclaimer:** Unofficial demo project for portfolio / educational purposes. Not affiliated with the Belgian Red Cross / Rode Kruis Vlaanderen / Croix-Rouge de Belgique.
 
@@ -8,8 +8,9 @@ Mobile-first full-stack portfolio app that turns blood donation into a long-term
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Angular 20, Tailwind CSS, Chart.js, Tesseract.js |
+| Frontend | Angular 20, Tailwind CSS, Chart.js, Lucide icons |
 | Backend | ASP.NET Core 10 Web API, Identity, JWT |
+| Document scan | Local ImageMagick + Tesseract (NL/FR/EN) — free & private |
 | Data | Entity Framework Core + SQL Server |
 | Infra | Docker Compose (SQL Server) |
 
@@ -18,7 +19,7 @@ Mobile-first full-stack portfolio app that turns blood donation into a long-term
 - JWT register / login with ASP.NET Core Identity
 - Donor dashboard (level, XP, lives impacted, liters donated, next eligible date)
 - Donation history + manual add
-- OCR scan flow (camera / upload → Tesseract.js → API parse → review → save)
+- Document scan (camera / upload → local server OCR → auto-fill → review → save)
 - Blood test results (hemoglobin, ferritin, blood pressure, weight)
 - Gamification (levels, XP, badges)
 - Statistics with Chart.js (bar / pie / line + achievement progress)
@@ -30,6 +31,8 @@ Mobile-first full-stack portfolio app that turns blood donation into a long-term
 - Node.js 20+
 - .NET 10 SDK
 - Docker (for SQL Server)
+- `tesseract-ocr` + `tesseract-ocr-nld` + `tesseract-ocr-fra` + `tesseract-ocr-eng`
+- `imagemagick` (`convert`)
 
 ### 1. Start SQL Server
 
@@ -94,7 +97,9 @@ Password: Demo123!
 | GET/PUT | `/api/user`, `/api/user/{id}` | JWT |
 | GET/POST/DELETE | `/api/donations` | JWT |
 | GET/POST | `/api/bloodresults` | JWT |
-| POST | `/api/ocr/scan` | JWT |
+| POST | `/api/ocr/extract` | JWT (image → local OCR fields) |
+| POST | `/api/ocr/scan` | JWT (raw text parse) |
+| GET | `/api/ocr/status` | Public |
 | GET | `/api/stats/summary` | JWT |
 
 ## Eligibility rules (demo)
@@ -113,12 +118,15 @@ Password: Demo123!
 
 Levels by successful donation count: 0 → L1, 3 → L2, 5 → L3, 10 → L4, 15 → L5, 25 → L6, 40 → L7.
 
-## OCR flow
+## Document scan flow (free & private)
 
-1. Open camera or upload an image in `/scan`
-2. Tesseract.js extracts text in the browser
-3. `POST /api/ocr/scan` parses donation ID, date, type, center + confidence
-4. User reviews fields and saves a donation (optional blood metrics)
+1. Open camera or upload a photo of the **full** Belgian Red Cross letter in `/scan`
+2. Frontend sends the image to `POST /api/ocr/extract`
+3. Backend enhances + tries orientations with ImageMagick, runs **local** Tesseract (NL/FR/EN)
+4. Heuristic parser fills donation reference, date, center, hemoglobin, hematocrit, …
+5. User reviews fields (always) and saves — optional blood metrics
+
+No OpenAI / Google / Azure Document AI. Photos stay on your machine/server.
 
 ## UI theme
 
@@ -127,4 +135,4 @@ Levels by successful donation count: 0 → L1, 3 → L2, 5 → L3, 10 → L4, 15
 
 ## Portfolio highlights
 
-Angular · ASP.NET Core · Identity · JWT · EF Core · SQL Server · OCR · Camera · Dashboards · Chart.js · Gamification · REST APIs · Full-stack architecture
+Angular · ASP.NET Core · Identity · JWT · EF Core · SQL Server · Local OCR · Camera · Dashboards · Chart.js · Gamification · REST APIs · Full-stack architecture

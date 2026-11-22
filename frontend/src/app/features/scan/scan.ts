@@ -1,7 +1,7 @@
-import { Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
+import { Component, ElementRef, NgZone, OnDestroy, ViewChild, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { createWorker, Worker } from 'tesseract.js';
+import { firstValueFrom } from 'rxjs';
 import { LucideCamera, LucideScanLine, LucideUpload } from '@lucide/angular';
 import { ApiService } from '../../core/services/api.service';
 import { I18nService } from '../../core/i18n/i18n.service';
@@ -23,6 +23,10 @@ import { LanguageSwitcherComponent } from '../../shared/language-switcher';
           <p class="max-w-2xl text-muted">{{ i18n.t('scanSubtitle') }}</p>
         </div>
         <app-language-switcher />
+      </div>
+
+      <div class="rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-accent">
+        {{ i18n.t('privacyNote') }}
       </div>
 
       <div class="grid gap-6 lg:grid-cols-2">
@@ -57,7 +61,7 @@ import { LanguageSwitcherComponent } from '../../shared/language-switcher';
             <button
               class="btn-accent inline-flex items-center gap-2"
               type="button"
-              (click)="runOcr()"
+              (click)="runExtract()"
               [disabled]="!imageSource() || processing()"
             >
               <svg lucideScanLine [size]="16" strokeWidth="2"></svg>
@@ -103,6 +107,9 @@ import { LanguageSwitcherComponent } from '../../shared/language-switcher';
               {{ i18n.t('confidence') }}: {{ confidence() }}%
               @if (detectedLang()) {
                 · {{ detectedLang().toUpperCase() }}
+              }
+              @if (method()) {
+                · {{ method() }}
               }
             </div>
 
@@ -162,10 +169,10 @@ export class ScanComponent implements OnDestroy {
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly zone = inject(NgZone);
   readonly i18n = inject(I18nService);
 
   private stream: MediaStream | null = null;
-  private worker: Worker | null = null;
 
   readonly cameraOn = signal(false);
   readonly previewUrl = signal<string | null>(null);
@@ -176,6 +183,7 @@ export class ScanComponent implements OnDestroy {
   readonly rawText = signal('');
   readonly confidence = signal(0);
   readonly detectedLang = signal('');
+  readonly method = signal('');
   readonly notes = signal('');
   readonly error = signal('');
   readonly success = signal('');
@@ -242,7 +250,7 @@ export class ScanComponent implements OnDestroy {
     reader.readAsDataURL(file);
   }
 
-  async runOcr(): Promise<void> {
+  async runExtract(): Promise<void> {
     const source = this.imageSource();
     if (!source) return;
     this.processing.set(true);
@@ -251,39 +259,22 @@ export class ScanComponent implements OnDestroy {
     this.status.set(this.i18n.t('tryingOrientations'));
 
     try {
-      if (!this.worker) {
-        this.worker = await createWorker(['nld', 'fra', 'eng']);
-      }
+      const mime = source.startsWith('data:')
+        ? source.slice(5, source.indexOf(';')) || 'image/jpeg'
+        : 'image/jpeg';
 
-      const variants = await this.buildOrientationVariants(source);
-      let best = { text: '', confidence: -1, dataUrl: source };
+      const parsed = await firstValueFrom(this.api.extractDocument(source, mime));
 
-      for (const variant of variants) {
-        const result = await this.worker.recognize(variant.dataUrl);
-        const text = result.data.text || '';
-        const conf = result.data.confidence || 0;
-        const score = conf + this.belgianDocBonus(text);
-        if (score > best.confidence + this.belgianDocBonus(best.text)) {
-          best = { text, confidence: conf, dataUrl: variant.dataUrl };
-        }
-      }
-
-      this.previewUrl.set(best.dataUrl);
-      this.imageSource.set(best.dataUrl);
-      this.rawText.set(best.text);
-      this.confidence.set(Math.round(best.confidence));
-      this.status.set(this.i18n.t('parsingFields'));
-
-      this.api.parseOcr(best.text, Math.round(best.confidence)).subscribe({
-        next: (parsed) => this.applyParsed(parsed, Math.round(best.confidence)),
-        error: () => {
-          this.error.set(this.i18n.t('parseFailed'));
-          this.processing.set(false);
-        },
+      this.zone.run(() => {
+        this.rawText.set(parsed.rawText || '');
+        this.method.set(parsed.extractionMethod || 'local-tesseract');
+        this.applyParsed(parsed, parsed.confidence || 0);
       });
     } catch {
-      this.error.set(this.i18n.t('ocrFailed'));
-      this.processing.set(false);
+      this.zone.run(() => {
+        this.error.set(this.i18n.t('ocrFailed'));
+        this.processing.set(false);
+      });
     }
   }
 
@@ -292,84 +283,31 @@ export class ScanComponent implements OnDestroy {
     this.detectedLang.set(parsed.detectedLanguage || '');
     this.notes.set(parsed.notes || '');
 
-    if (parsed.donationId) this.form.patchValue({ donationReference: parsed.donationId });
-    if (parsed.donationType) this.form.patchValue({ donationType: parsed.donationType });
-    if (parsed.center) this.form.patchValue({ location: parsed.center });
+    const patch: Record<string, string | number> = {};
+
+    if (parsed.donationId) patch['donationReference'] = parsed.donationId;
+    if (parsed.donationType) patch['donationType'] = parsed.donationType;
+    if (parsed.center) patch['location'] = parsed.center;
     if (parsed.donationDate) {
-      const parts = parsed.donationDate.split('/');
-      if (parts.length === 3) {
-        const iso = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-        this.form.patchValue({ donationDate: iso });
-      }
+      const iso = toIsoDate(parsed.donationDate);
+      if (iso) patch['donationDate'] = iso;
     }
-    if (parsed.hemoglobin != null) this.form.patchValue({ hemoglobin: parsed.hemoglobin });
-    if (parsed.hematocrit != null) this.form.patchValue({ hematocrit: parsed.hematocrit });
-    if (parsed.ferritin != null) this.form.patchValue({ ferritin: parsed.ferritin });
-    if (parsed.bloodPressure) this.form.patchValue({ bloodPressure: parsed.bloodPressure });
-    if (parsed.weight != null) this.form.patchValue({ weight: parsed.weight });
+    if (parsed.hemoglobin != null) patch['hemoglobin'] = parsed.hemoglobin;
+    if (parsed.hematocrit != null) patch['hematocrit'] = parsed.hematocrit;
+    if (parsed.ferritin != null) patch['ferritin'] = parsed.ferritin;
+    if (parsed.bloodPressure) patch['bloodPressure'] = parsed.bloodPressure;
+    if (parsed.weight != null) patch['weight'] = parsed.weight;
 
-    this.status.set(this.i18n.t('reviewThenSave'));
+    this.form.patchValue(patch);
+    this.form.updateValueAndValidity();
+
+    const filled = Object.keys(patch).length;
+    this.status.set(
+      filled > 0
+        ? `${this.i18n.t('reviewThenSave')} (${filled} fields)`
+        : this.i18n.t('reviewThenSave')
+    );
     this.processing.set(false);
-  }
-
-  private belgianDocBonus(text: string): number {
-    let bonus = 0;
-    if (/(Beste Donor|Cher Donneur|Dear Donor)/i.test(text)) bonus += 20;
-    if (/(Hemoglobine|Hémoglobine|Hemoglobin)/i.test(text)) bonus += 15;
-    if (/(GIFT VAN|DON DU|DON DE)/i.test(text)) bonus += 15;
-    if (/(Croix-Rouge|Rode Kruis|Red Cross)/i.test(text)) bonus += 10;
-    if (/Ref\.?\s*[:.]?\s*\d{5,}/i.test(text)) bonus += 10;
-    return bonus;
-  }
-
-  private async buildOrientationVariants(source: string): Promise<{ angle: number; dataUrl: string }[]> {
-    const img = await this.loadImage(source);
-    const angles = [0, 90, 180, 270];
-    return angles.map((angle) => ({
-      angle,
-      dataUrl: this.rotateAndEnhance(img, angle),
-    }));
-  }
-
-  private loadImage(src: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('image load failed'));
-      img.src = src;
-    });
-  }
-
-  private rotateAndEnhance(img: HTMLImageElement, angle: number): string {
-    const rad = (angle * Math.PI) / 180;
-    const swap = angle % 180 !== 0;
-    const width = swap ? img.naturalHeight : img.naturalWidth;
-    const height = swap ? img.naturalWidth : img.naturalHeight;
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return img.src;
-
-    ctx.save();
-    ctx.translate(width / 2, height / 2);
-    ctx.rotate(rad);
-    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-    ctx.restore();
-
-    // Mild contrast boost helps faded lab printouts
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-    const contrast = 1.15;
-    const intercept = 128 * (1 - contrast);
-    for (let i = 0; i < data.length; i += 4) {
-      const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-      const v = Math.min(255, Math.max(0, gray * contrast + intercept));
-      data[i] = data[i + 1] = data[i + 2] = v;
-    }
-    ctx.putImageData(imageData, 0, 0);
-
-    return canvas.toDataURL('image/jpeg', 0.92);
   }
 
   save(): void {
@@ -431,6 +369,15 @@ export class ScanComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopCamera();
-    void this.worker?.terminate();
   }
+}
+
+function toIsoDate(value: string): string | null {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const parts = trimmed.split(/[/.-]/);
+  if (parts.length !== 3) return null;
+  let [d, m, y] = parts;
+  if (y.length === 2) y = `20${y}`;
+  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }

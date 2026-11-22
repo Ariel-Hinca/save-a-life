@@ -23,7 +23,7 @@ public class OcrParseService
     public OcrScanResponse Parse(string text, int? clientConfidence = null)
     {
         text ??= string.Empty;
-        var normalized = text.Replace('\u00a0', ' ');
+        var normalized = NormalizeOcrNoise(text);
         var response = new OcrScanResponse
         {
             Confidence = clientConfidence ?? EstimateConfidence(normalized),
@@ -35,38 +35,42 @@ public class OcrParseService
         response.DonationType = ExtractDonationType(normalized);
         response.Center = ExtractCenter(normalized);
 
-        response.Hemoglobin = ExtractLabValue(normalized,
-            @"Hemoglobine|Hémoglobine|Hemoglobin|Hb\b");
-        response.Hemoglobin = NormalizeHemoglobin(response.Hemoglobin);
+        response.Hemoglobin = NormalizeHemoglobin(ExtractLabValue(normalized,
+            @"Hemoglob(?:ine|lne|me)|Hémoglobine|Hemoglobin|Hb\b"));
 
-        response.Hematocrit = ExtractLabValue(normalized,
-            @"Hematokriet|Hématocrite|Hematocrit|Hct\b");
-        response.RedBloodCells = ExtractLabValue(normalized,
-            @"Rode bloedcellen|Globules rouges|Red blood cells|Erythrocytes");
-        response.WhiteBloodCells = ExtractLabValue(normalized,
-            @"Witte bloedcellen|Globules blancs|White blood cells|Leucocytes");
+        response.Hematocrit = NormalizeHematocrit(ExtractLabValue(normalized,
+            @"Hematokriet|Hématocrite|Hematocrit|Hct\b"));
+
+        response.RedBloodCells = NormalizeBloodCount(ExtractLabValue(normalized,
+            @"Rode bloedcellen|Globules rouges|Red blood cells|Erythrocytes"), scaleIfLarge: 100m);
+
+        response.WhiteBloodCells = NormalizeBloodCount(ExtractLabValue(normalized,
+            @"W(?:itte|te)\s+bloedcellen|Globules blancs|White blood cells|Leucocytes"), scaleIfLarge: 10m);
+
         response.Platelets = ExtractLabValue(normalized,
             @"Bloedplaatjes|Plaquettes|Platelets|Thrombocytes");
+
         response.Ferritin = ExtractLabValue(normalized,
             @"Ferritine|Ferritin");
 
-        if (Regex.IsMatch(normalized, @"hemoglobinegehalte bevindt zich onder|hémoglobine .* sous|hemoglobin .* below|onder de norm|sous la norme",
+        if (Regex.IsMatch(normalized,
+                @"hemoglobinegehalte bevindt zich onder|hémoglobine .* sous|hemoglobin .* below|onder de norm|sous la norme",
                 RegexOptions.IgnoreCase | RegexOptions.Singleline))
         {
             response.Notes = "Hemoglobin below donation threshold — control required before next donation.";
         }
 
-        // Confidence boost from structured Belgian fields
         var found = 0;
         if (!string.IsNullOrEmpty(response.DonationId)) found++;
         if (!string.IsNullOrEmpty(response.DonationDate)) found++;
         if (!string.IsNullOrEmpty(response.DonationType)) found++;
         if (!string.IsNullOrEmpty(response.Center)) found++;
         if (response.Hemoglobin is not null) found++;
+        if (response.Hematocrit is not null) found++;
 
         if (clientConfidence is null)
         {
-            response.Confidence = Math.Min(99, 35 + found * 12);
+            response.Confidence = Math.Min(99, 35 + found * 10);
         }
         else
         {
@@ -74,6 +78,17 @@ public class OcrParseService
         }
 
         return response;
+    }
+
+    /// <summary>Fix common Tesseract misreads on Belgian Red Cross letters.</summary>
+    private static string NormalizeOcrNoise(string text)
+    {
+        var normalized = text.Replace('\u00a0', ' ');
+        normalized = Regex.Replace(normalized, @"\bWte\b", "Witte", RegexOptions.IgnoreCase);
+        normalized = Regex.Replace(normalized, @"Hemogloblne", "Hemoglobine", RegexOptions.IgnoreCase);
+        normalized = Regex.Replace(normalized, @"Hematokr[il]et", "Hematokriet", RegexOptions.IgnoreCase);
+        normalized = Regex.Replace(normalized, @"G[Il]FT\s+VAN", "GIFT VAN", RegexOptions.IgnoreCase);
+        return normalized;
     }
 
     private static string ExtractReference(string text)
@@ -84,6 +99,13 @@ public class OcrParseService
         if (refMatch.Success)
         {
             return $"{refMatch.Groups[1].Value}/{refMatch.Groups[2].Value}";
+        }
+
+        // OCR sometimes drops "Ref" but keeps 1048491 /B0201...
+        var loose = Regex.Match(text, @"\b(\d{6,8})\s*/\s*(B[A-Z0-9]{10,})", RegexOptions.IgnoreCase);
+        if (loose.Success)
+        {
+            return $"{loose.Groups[1].Value}/{loose.Groups[2].Value.ToUpperInvariant()}";
         }
 
         var barcode = Regex.Match(text, @"\b(B\d{12,})\b", RegexOptions.IgnoreCase);
@@ -106,11 +128,9 @@ public class OcrParseService
             RegexOptions.IgnoreCase);
         if (gift.Success) return NormalizeDate(gift.Groups[1].Value);
 
-        // Prefer dates near "28/10" style after gift context; else first solid date
         var dates = Regex.Matches(text, @"\b(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\b");
         if (dates.Count > 0)
         {
-            // Often letter date is last; donation date appears earlier near gift sentence
             foreach (Match m in dates)
             {
                 var idx = m.Index;
@@ -128,7 +148,6 @@ public class OcrParseService
 
     private static string ExtractDonationType(string text)
     {
-        // Prefer explicit donation-type wording over lab analyte names like "Bloedplaatjes".
         if (Regex.IsMatch(text,
                 @"donatie\s+van\s+bloedplaatjes|don\s+de\s+plaquette|platelet\s+donat|aplasmaferese|plasmapheresis",
                 RegexOptions.IgnoreCase))
@@ -147,7 +166,6 @@ public class OcrParseService
         return "Whole Blood";
     }
 
-
     private static string ExtractCenter(string text)
     {
         foreach (var (pattern, center) in Centers)
@@ -162,8 +180,9 @@ public class OcrParseService
 
     private static decimal? ExtractLabValue(string text, string labelPattern)
     {
+        // Allow OCR junk between label and number (e.g. "Hematokriet: wo - % 40.0")
         var match = Regex.Match(text,
-            $@"(?:{labelPattern})\*?[\s:.\-]*([0-9]+(?:[.,][0-9]+)?)",
+            $@"(?:{labelPattern})\*?[^\d]{{0,24}}([0-9]+(?:[.,][0-9]+)?)",
             RegexOptions.IgnoreCase);
         if (!match.Success) return null;
 
@@ -175,13 +194,27 @@ public class OcrParseService
         return null;
     }
 
-    /// <summary>
-    /// OCR often drops the decimal for hemoglobin (12.2 → 122). Fix obvious cases.
-    /// </summary>
     private static decimal? NormalizeHemoglobin(decimal? value)
     {
         if (value is null) return null;
         if (value is >= 30 and <= 250) return Math.Round(value.Value / 10m, 1);
+        if (value is < 5 or > 25) return null;
+        return value;
+    }
+
+    private static decimal? NormalizeHematocrit(decimal? value)
+    {
+        if (value is null) return null;
+        // OCR sometimes reads 400 for 40.0
+        if (value is >= 200 and <= 600) return Math.Round(value.Value / 10m, 1);
+        if (value is < 20 or > 65) return null;
+        return value;
+    }
+
+    private static decimal? NormalizeBloodCount(decimal? value, decimal scaleIfLarge)
+    {
+        if (value is null) return null;
+        if (value >= scaleIfLarge) return Math.Round(value.Value / scaleIfLarge, 2);
         return value;
     }
 

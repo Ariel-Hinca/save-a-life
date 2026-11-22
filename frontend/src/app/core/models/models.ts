@@ -51,6 +51,17 @@ export interface OcrScanResponse {
   bloodPressure?: string | null;
   weight?: number | null;
   notes?: string;
+  /** local-tesseract | regex */
+  extractionMethod?: string;
+  rawText?: string;
+}
+
+export interface OcrStatus {
+  visionConfigured: boolean;
+  localOcrAvailable: boolean;
+  provider: string;
+  cloudAi: boolean;
+  cost: string;
 }
 
 export interface AchievementProgress {
