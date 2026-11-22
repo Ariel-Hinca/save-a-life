@@ -36,10 +36,12 @@ public class OcrParseService
         response.Center = ExtractCenter(normalized);
 
         response.Hemoglobin = NormalizeHemoglobin(ExtractLabValue(normalized,
-            @"Hemoglob(?:ine|lne|me)|Hémoglobine|Hemoglobin|Hb\b"));
+            @"Hemoglob(?:ine|lne|me)|Hémoglobine|Hemoglobin|\bHb\b",
+            unitHints: ["g/dL", "g/dl", "g/L"]));
 
         response.Hematocrit = NormalizeHematocrit(ExtractLabValue(normalized,
-            @"Hematokriet|Hématocrite|Hematocrit|Hct\b"));
+            @"Hematokriet|Hématocrite|Hematocrit|\bHct\b",
+            unitHints: ["%"]));
 
         response.RedBloodCells = NormalizeBloodCount(ExtractLabValue(normalized,
             @"Rode bloedcellen|Globules rouges|Red blood cells|Erythrocytes"), scaleIfLarge: 100m);
@@ -124,11 +126,11 @@ public class OcrParseService
     private static string ExtractDonationDate(string text)
     {
         var gift = Regex.Match(text,
-            @"(?:GIFT\s+VAN|DON\s+DU|DON\s+DE|Donation\s+(?:of|on)|bloedinzameling\s+van|collecte\s+du)\s+(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})",
+            @"(?:GIFT\s+VAN|DON\s+DU|DON\s+DE|Donation\s+(?:of|on)|bloedinzameling\s+van|collecte\s+du)\s+(\d{1,2}\s*[/.-]\s*\d{1,2}\s*[/.-]\s*\d{2,4})",
             RegexOptions.IgnoreCase);
         if (gift.Success) return NormalizeDate(gift.Groups[1].Value);
 
-        var dates = Regex.Matches(text, @"\b(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\b");
+        var dates = Regex.Matches(text, @"\b(\d{1,2}\s*[/.-]\s*\d{1,2}\s*[/.-]\s*\d{2,4})\b");
         if (dates.Count > 0)
         {
             foreach (Match m in dates)
@@ -178,19 +180,45 @@ public class OcrParseService
         return string.Empty;
     }
 
-    private static decimal? ExtractLabValue(string text, string labelPattern)
+    private static decimal? ExtractLabValue(string text, string labelPattern, string[]? unitHints = null)
     {
-        // Allow OCR junk between label and number (e.g. "Hematokriet: wo - % 40.0")
-        var match = Regex.Match(text,
-            $@"(?:{labelPattern})\*?[^\d]{{0,24}}([0-9]+(?:[.,][0-9]+)?)",
-            RegexOptions.IgnoreCase);
-        if (!match.Success) return null;
+        var label = Regex.Match(text, labelPattern, RegexOptions.IgnoreCase);
+        if (!label.Success) return null;
 
-        var raw = match.Groups[1].Value.Replace(',', '.');
-        if (decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var value))
+        var start = label.Index;
+        var len = Math.Min(140, text.Length - start);
+        var window = text.Substring(start, len);
+
+        // Prefer value glued to a unit (12.2 g/dL, 40 %).
+        if (unitHints is { Length: > 0 })
         {
-            return value;
+            foreach (var hint in unitHints)
+            {
+                var escaped = Regex.Escape(hint);
+                var unitMatch = Regex.Match(window,
+                    $@"([0-9]+(?:[.,][0-9]+)?)\s*{escaped}",
+                    RegexOptions.IgnoreCase);
+                if (unitMatch.Success &&
+                    decimal.TryParse(unitMatch.Groups[1].Value.Replace(',', '.'),
+                        NumberStyles.Number, CultureInfo.InvariantCulture, out var unitValue))
+                {
+                    return unitValue;
+                }
+            }
         }
+
+        // Otherwise take first number that is not the start of a reference range (12.0-16.0).
+        foreach (Match m in Regex.Matches(window, @"([0-9]+(?:[.,][0-9]+)?)"))
+        {
+            var after = window.Substring(m.Index + m.Length, Math.Min(3, window.Length - (m.Index + m.Length)));
+            if (Regex.IsMatch(after, @"^\s*[-–—]")) continue;
+            if (decimal.TryParse(m.Groups[1].Value.Replace(',', '.'),
+                    NumberStyles.Number, CultureInfo.InvariantCulture, out var value))
+            {
+                return value;
+            }
+        }
+
         return null;
     }
 
@@ -229,7 +257,7 @@ public class OcrParseService
 
     private static string NormalizeDate(string raw)
     {
-        var cleaned = raw.Replace('.', '/').Replace('-', '/');
+        var cleaned = Regex.Replace(raw, @"\s+", "").Replace('.', '/').Replace('-', '/');
         var formats = new[] { "dd/MM/yyyy", "d/M/yyyy", "dd/MM/yy", "d/M/yy" };
         if (DateTime.TryParseExact(cleaned, formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
         {

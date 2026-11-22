@@ -1,4 +1,13 @@
-import { Component, ElementRef, NgZone, OnDestroy, ViewChild, inject, signal } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  NgZone,
+  OnDestroy,
+  ViewChild,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -6,6 +15,11 @@ import { LucideCamera, LucideScanLine, LucideUpload } from '@lucide/angular';
 import { ApiService } from '../../core/services/api.service';
 import { I18nService } from '../../core/i18n/i18n.service';
 import { OcrScanResponse } from '../../core/models/models';
+import {
+  mergeOcrResults,
+  normalizeOcrResponse,
+  parseBelgianRedCrossOcr,
+} from '../../core/services/belgian-ocr-parser';
 import { LanguageSwitcherComponent } from '../../shared/language-switcher';
 
 @Component({
@@ -170,6 +184,7 @@ export class ScanComponent implements OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly zone = inject(NgZone);
+  private readonly cdr = inject(ChangeDetectorRef);
   readonly i18n = inject(I18nService);
 
   private stream: MediaStream | null = null;
@@ -188,16 +203,16 @@ export class ScanComponent implements OnDestroy {
   readonly error = signal('');
   readonly success = signal('');
 
-  readonly form = this.fb.nonNullable.group({
+  readonly form = this.fb.group({
     donationReference: [''],
     donationDate: [new Date().toISOString().slice(0, 10), Validators.required],
     donationType: ['Whole Blood', Validators.required],
     location: [''],
-    hemoglobin: ['' as string | number],
-    hematocrit: ['' as string | number],
-    ferritin: ['' as string | number],
+    hemoglobin: this.fb.control<number | null>(null),
+    hematocrit: this.fb.control<number | null>(null),
+    ferritin: this.fb.control<number | null>(null),
     bloodPressure: [''],
-    weight: ['' as string | number],
+    weight: this.fb.control<number | null>(null),
   });
 
   async startCamera(): Promise<void> {
@@ -263,10 +278,13 @@ export class ScanComponent implements OnDestroy {
         ? source.slice(5, source.indexOf(';')) || 'image/jpeg'
         : 'image/jpeg';
 
-      const parsed = await firstValueFrom(this.api.extractDocument(source, mime));
+      const remoteRaw = await firstValueFrom(this.api.extractDocument(source, mime));
+      const remote = normalizeOcrResponse(remoteRaw as unknown as Record<string, unknown>);
+      const local = parseBelgianRedCrossOcr(remote.rawText || '', remote.confidence || 0);
+      const parsed = mergeOcrResults(remote, local);
 
       this.zone.run(() => {
-        this.rawText.set(parsed.rawText || '');
+        this.rawText.set(parsed.rawText || remote.rawText || '');
         this.method.set(parsed.extractionMethod || 'local-tesseract');
         this.applyParsed(parsed, parsed.confidence || 0);
       });
@@ -274,6 +292,7 @@ export class ScanComponent implements OnDestroy {
       this.zone.run(() => {
         this.error.set(this.i18n.t('ocrFailed'));
         this.processing.set(false);
+        this.cdr.detectChanges();
       });
     }
   }
@@ -283,28 +302,36 @@ export class ScanComponent implements OnDestroy {
     this.detectedLang.set(parsed.detectedLanguage || '');
     this.notes.set(parsed.notes || '');
 
-    const patch: Record<string, string | number> = {};
+    const filledLabels: string[] = [];
 
-    if (parsed.donationId) patch['donationReference'] = parsed.donationId;
-    if (parsed.donationType) patch['donationType'] = parsed.donationType;
-    if (parsed.center) patch['location'] = parsed.center;
+    const setCtrl = (name: string, value: string | number, label: string) => {
+      const ctrl = this.form.get(name);
+      if (!ctrl) return;
+      ctrl.setValue(value, { emitEvent: true });
+      ctrl.markAsDirty();
+      ctrl.markAsTouched();
+      filledLabels.push(label);
+    };
+
+    if (parsed.donationId) setCtrl('donationReference', parsed.donationId, 'reference');
+    if (parsed.donationType) setCtrl('donationType', parsed.donationType, 'type');
+    if (parsed.center) setCtrl('location', parsed.center, 'center');
     if (parsed.donationDate) {
       const iso = toIsoDate(parsed.donationDate);
-      if (iso) patch['donationDate'] = iso;
+      if (iso) setCtrl('donationDate', iso, 'date');
     }
-    if (parsed.hemoglobin != null) patch['hemoglobin'] = parsed.hemoglobin;
-    if (parsed.hematocrit != null) patch['hematocrit'] = parsed.hematocrit;
-    if (parsed.ferritin != null) patch['ferritin'] = parsed.ferritin;
-    if (parsed.bloodPressure) patch['bloodPressure'] = parsed.bloodPressure;
-    if (parsed.weight != null) patch['weight'] = parsed.weight;
+    if (parsed.hemoglobin != null) setCtrl('hemoglobin', Number(parsed.hemoglobin), 'hemoglobin');
+    if (parsed.hematocrit != null) setCtrl('hematocrit', Number(parsed.hematocrit), 'hematocrit');
+    if (parsed.ferritin != null) setCtrl('ferritin', Number(parsed.ferritin), 'ferritin');
+    if (parsed.bloodPressure) setCtrl('bloodPressure', parsed.bloodPressure, 'blood pressure');
+    if (parsed.weight != null) setCtrl('weight', Number(parsed.weight), 'weight');
 
-    this.form.patchValue(patch);
-    this.form.updateValueAndValidity();
+    this.form.updateValueAndValidity({ emitEvent: true });
+    this.cdr.detectChanges();
 
-    const filled = Object.keys(patch).length;
     this.status.set(
-      filled > 0
-        ? `${this.i18n.t('reviewThenSave')} (${filled} fields)`
+      filledLabels.length > 0
+        ? `${this.i18n.t('reviewThenSave')} (${filledLabels.length}: ${filledLabels.join(', ')})`
         : this.i18n.t('reviewThenSave')
     );
     this.processing.set(false);
@@ -316,29 +343,30 @@ export class ScanComponent implements OnDestroy {
     this.error.set('');
     this.success.set('');
     const value = this.form.getRawValue();
+    const donationDate = value.donationDate || new Date().toISOString().slice(0, 10);
     this.api
       .createDonation({
-        donationDate: new Date(value.donationDate).toISOString(),
-        donationType: value.donationType,
-        location: value.location,
-        donationReference: value.donationReference,
+        donationDate: new Date(donationDate).toISOString(),
+        donationType: value.donationType || 'Whole Blood',
+        location: value.location || '',
+        donationReference: value.donationReference || '',
         status: 'Successful',
       })
       .subscribe({
         next: () => {
           const hasResults =
-            value.hemoglobin !== '' ||
-            value.ferritin !== '' ||
+            value.hemoglobin != null ||
+            value.ferritin != null ||
             !!value.bloodPressure ||
-            value.weight !== '';
+            value.weight != null;
           if (hasResults) {
             this.api
               .createBloodResult({
-                resultDate: new Date(value.donationDate).toISOString(),
-                hemoglobin: value.hemoglobin === '' ? null : Number(value.hemoglobin),
-                ferritin: value.ferritin === '' ? null : Number(value.ferritin),
+                resultDate: new Date(donationDate).toISOString(),
+                hemoglobin: value.hemoglobin,
+                ferritin: value.ferritin,
                 bloodPressure: value.bloodPressure || null,
-                weight: value.weight === '' ? null : Number(value.weight),
+                weight: value.weight,
               })
               .subscribe({
                 next: () => this.finishSave(),
@@ -381,3 +409,4 @@ function toIsoDate(value: string): string | null {
   if (y.length === 2) y = `20${y}`;
   return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
+
