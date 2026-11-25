@@ -7,3 +7,6 @@
 **/*.user
 **/.env
 **/.DS_Store
+
+# Local Tesseract language packs (downloaded at runtime)
+*.traineddata

@@ -41,6 +41,27 @@ export interface OcrScanResponse {
   donationType: string;
   center: string;
   confidence: number;
+  detectedLanguage?: string;
+  hemoglobin?: number | null;
+  hematocrit?: number | null;
+  redBloodCells?: number | null;
+  whiteBloodCells?: number | null;
+  platelets?: number | null;
+  ferritin?: number | null;
+  bloodPressure?: string | null;
+  weight?: number | null;
+  notes?: string;
+  /** local-tesseract | regex */
+  extractionMethod?: string;
+  rawText?: string;
+}
+
+export interface OcrStatus {
+  visionConfigured: boolean;
+  localOcrAvailable: boolean;
+  provider: string;
+  cloudAi: boolean;
+  cost: string;
 }
 
 export interface AchievementProgress {

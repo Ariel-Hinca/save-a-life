@@ -1,22 +1,23 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { LucideDroplet } from '@lucide/angular';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, LucideDroplet],
   template: `
-    <div class="flex min-h-screen items-center justify-center bg-surface px-4 py-10">
+    <div class="flex min-h-screen items-center justify-center px-4 py-10">
       <div class="w-full max-w-lg">
-        <a routerLink="/" class="mb-6 inline-flex items-center gap-2 font-bold text-primary">
-          <span class="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white">+</span>
+        <a routerLink="/" class="mb-6 inline-flex items-center gap-2 font-semibold text-ink">
+          <span class="icon-chip" aria-hidden="true"><svg lucideDroplet [size]="18" strokeWidth="2"></svg></span>
           Donor Companion
         </a>
         <div class="card">
-          <h1 class="text-2xl font-bold">Create account</h1>
-          <p class="mt-1 text-sm text-slate-500">Start tracking donations and health metrics.</p>
+          <h1 class="font-display text-3xl font-bold text-ink">Create account</h1>
+          <p class="mt-1 text-sm text-muted">Start tracking donations and health metrics.</p>
 
           <form class="mt-6 grid gap-4 sm:grid-cols-2" [formGroup]="form" (ngSubmit)="submit()">
             <div>
