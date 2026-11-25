@@ -103,5 +103,10 @@ h2,
     white-space: nowrap;
     border: 0;
   }
+
+  /* Keep language control tiny even with @tailwindcss/forms select defaults. */
+  .lang-switch button {
+    line-height: 1.1;
+  }
 }
 
