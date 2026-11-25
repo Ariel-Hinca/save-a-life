@@ -1,8 +1,9 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { LucideTrophy, LucideUserRound } from '@lucide/angular';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/auth/auth.service';
-import { LucideTrophy, LucideUserRound } from '@lucide/angular';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { User } from '../../core/models/models';
 
 @Component({
@@ -14,9 +15,9 @@ import { User } from '../../core/models/models';
       <div>
         <h1 class="flex items-center gap-2 font-display text-3xl font-bold text-ink">
           <svg lucideUserRound [size]="28" strokeWidth="2"></svg>
-          Profile
+          {{ i18n.t('profileTitle') }}
         </h1>
-        <p class="text-muted">Keep your donor details up to date.</p>
+        <p class="text-muted">{{ i18n.t('profileSubtitle') }}</p>
       </div>
 
       @if (user(); as u) {
@@ -28,7 +29,7 @@ import { User } from '../../core/models/models';
             <div class="text-lg font-semibold text-ink">{{ u.firstName }} {{ u.lastName }}</div>
             <div class="flex items-center gap-1 text-sm text-muted">
               <svg lucideTrophy [size]="14" strokeWidth="2"></svg>
-              Level {{ u.donorLevel }} · {{ u.xp }} XP
+              {{ i18n.t('levelXp') }} {{ u.donorLevel }} · {{ u.xp }} XP
             </div>
             <div class="text-sm text-muted">{{ u.email }}</div>
           </div>
@@ -38,28 +39,28 @@ import { User } from '../../core/models/models';
       <form class="card space-y-4" [formGroup]="form" (ngSubmit)="save()">
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
-            <label class="label">First Name</label>
+            <label class="label">{{ i18n.t('firstName') }}</label>
             <input class="input" formControlName="firstName" />
           </div>
           <div>
-            <label class="label">Last Name</label>
+            <label class="label">{{ i18n.t('lastName') }}</label>
             <input class="input" formControlName="lastName" />
           </div>
         </div>
         <div>
-          <label class="label">Email</label>
+          <label class="label">{{ i18n.t('email') }}</label>
           <input class="input" [value]="user()?.email || ''" disabled />
         </div>
         <div>
-          <label class="label">Campus</label>
+          <label class="label">{{ i18n.t('campus') }}</label>
           <input class="input" formControlName="campus" />
         </div>
         <div>
-          <label class="label">Programme</label>
+          <label class="label">{{ i18n.t('programme') }}</label>
           <input class="input" formControlName="programme" />
         </div>
         <div>
-          <label class="label">Availability</label>
+          <label class="label">{{ i18n.t('availability') }}</label>
           <input class="input" formControlName="availability" />
         </div>
 
@@ -71,7 +72,7 @@ import { User } from '../../core/models/models';
         }
 
         <button class="btn-primary" type="submit" [disabled]="form.invalid || saving()">
-          {{ saving() ? 'Saving…' : 'Save profile' }}
+          {{ saving() ? i18n.t('saving') : i18n.t('saveProfile') }}
         </button>
       </form>
     </div>
@@ -81,6 +82,7 @@ export class ProfileComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  readonly i18n = inject(I18nService);
 
   readonly user = signal<User | null>(null);
   readonly saving = signal(false);
@@ -122,11 +124,11 @@ export class ProfileComponent implements OnInit {
         this.user.set(u);
         this.auth.setUser(u);
         this.saving.set(false);
-        this.message.set('Profile updated.');
+        this.message.set(this.i18n.t('profileUpdated'));
       },
       error: () => {
         this.saving.set(false);
-        this.error.set('Could not update profile.');
+        this.error.set(this.i18n.t('profileUpdateFailed'));
       },
     });
   }

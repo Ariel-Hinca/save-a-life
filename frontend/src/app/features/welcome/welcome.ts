@@ -60,7 +60,7 @@ import { LanguageSwitcherComponent } from '../../shared/language-switcher';
               <li class="flex items-start gap-3">
                 <span class="icon-chip"><svg lucideTrophy [size]="18" strokeWidth="2"></svg></span>
                 <div>
-                  <div class="font-semibold text-ink">XP & levels</div>
+                  <div class="font-semibold text-ink">{{ i18n.t('xpLevels') }}</div>
                   <div class="text-sm text-muted">{{ i18n.t('quickActions') }}</div>
                 </div>
               </li>
@@ -81,11 +81,11 @@ import { LanguageSwitcherComponent } from '../../shared/language-switcher';
             </ul>
           </div>
 
-          <aside class="card overflow-hidden p-0" aria-label="Product preview">
+          <aside class="card overflow-hidden p-0" [attr.aria-label]="i18n.t('featurePreview')">
             <div class="bg-ink px-6 py-8 text-paper">
               <div class="flex items-center gap-2 text-sm text-stone-300">
                 <svg lucideHeartPulse [size]="16" strokeWidth="2"></svg>
-                Level 5
+                {{ i18n.t('level') }} 5
               </div>
               <h2 class="mt-2 font-display text-4xl font-bold">12</h2>
               <p class="mt-3 text-sm text-stone-300">{{ i18n.t('donations') }}</p>

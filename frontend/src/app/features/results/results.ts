@@ -10,6 +10,7 @@ import {
   LucideScale,
 } from '@lucide/angular';
 import { ApiService } from '../../core/services/api.service';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { BloodResult } from '../../core/models/models';
 
 @Component({
@@ -31,13 +32,13 @@ import { BloodResult } from '../../core/models/models';
         <div>
           <h1 class="flex items-center gap-2 font-display text-3xl font-bold text-ink">
             <svg lucideFlaskConical [size]="28" strokeWidth="2"></svg>
-            Blood test results
+            {{ i18n.t('bloodTestResults') }}
           </h1>
-          <p class="text-muted">Track hemoglobin, ferritin, blood pressure and weight over time.</p>
+          <p class="text-muted">{{ i18n.t('bloodResultsSubtitle') }}</p>
         </div>
         <button class="btn-primary inline-flex items-center gap-2" type="button" (click)="showForm.set(!showForm())">
           <svg lucidePlus [size]="16" strokeWidth="2"></svg>
-          {{ showForm() ? 'Close' : 'Add result' }}
+          {{ showForm() ? i18n.t('close') : i18n.t('addResult') }}
         </button>
       </div>
 
@@ -46,7 +47,7 @@ import { BloodResult } from '../../core/models/models';
           <div class="card">
             <div class="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
               <svg lucideDroplet [size]="14" strokeWidth="2"></svg>
-              Hemoglobin
+              {{ i18n.t('hemoglobin') }}
             </div>
             <div class="font-display text-3xl font-bold text-ink">
               {{ l.hemoglobin ?? '—' }}
@@ -56,7 +57,7 @@ import { BloodResult } from '../../core/models/models';
           <div class="card">
             <div class="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
               <svg lucideFlaskConical [size]="14" strokeWidth="2"></svg>
-              Ferritin
+              {{ i18n.t('ferritin') }}
             </div>
             <div class="font-display text-3xl font-bold text-ink">
               {{ l.ferritin ?? '—' }}
@@ -66,14 +67,14 @@ import { BloodResult } from '../../core/models/models';
           <div class="card">
             <div class="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
               <svg lucideHeartPulse [size]="14" strokeWidth="2"></svg>
-              Blood Pressure
+              {{ i18n.t('bloodPressure') }}
             </div>
             <div class="font-display text-3xl font-bold text-ink">{{ l.bloodPressure || '—' }}</div>
           </div>
           <div class="card">
             <div class="mb-2 flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
               <svg lucideScale [size]="14" strokeWidth="2"></svg>
-              Weight
+              {{ i18n.t('weight') }}
             </div>
             <div class="font-display text-3xl font-bold text-ink">
               {{ l.weight ?? '—' }}
@@ -86,27 +87,27 @@ import { BloodResult } from '../../core/models/models';
       @if (showForm()) {
         <form class="card grid gap-4 md:grid-cols-2" [formGroup]="form" (ngSubmit)="create()">
           <div>
-            <label class="label">Date</label>
+            <label class="label">{{ i18n.t('date') }}</label>
             <input class="input" type="date" formControlName="resultDate" />
           </div>
           <div>
-            <label class="label">Hemoglobin</label>
+            <label class="label">{{ i18n.t('hemoglobin') }}</label>
             <input class="input" type="number" step="0.1" formControlName="hemoglobin" />
           </div>
           <div>
-            <label class="label">Ferritin</label>
+            <label class="label">{{ i18n.t('ferritin') }}</label>
             <input class="input" type="number" step="0.1" formControlName="ferritin" />
           </div>
           <div>
-            <label class="label">Blood pressure</label>
+            <label class="label">{{ i18n.t('bloodPressure') }}</label>
             <input class="input" formControlName="bloodPressure" placeholder="122/80" />
           </div>
           <div>
-            <label class="label">Weight</label>
+            <label class="label">{{ i18n.t('weight') }}</label>
             <input class="input" type="number" step="0.1" formControlName="weight" />
           </div>
           <button class="btn-primary md:col-span-2" type="submit" [disabled]="form.invalid || saving()">
-            Save result
+            {{ i18n.t('saveResult') }}
           </button>
         </form>
       }
@@ -114,20 +115,20 @@ import { BloodResult } from '../../core/models/models';
       <section class="space-y-3">
         <h2 class="flex items-center gap-2 text-lg font-semibold text-ink">
           <svg lucideActivity [size]="18" strokeWidth="2"></svg>
-          History
+          {{ i18n.t('resultsHistory') }}
         </h2>
         @if (loading()) {
-          <div class="state-box" role="status">Loading…</div>
+          <div class="state-box" role="status">{{ i18n.t('loading') }}</div>
         } @else if (!results().length) {
-          <div class="state-box">No results yet. Add one or scan a document.</div>
+          <div class="state-box">{{ i18n.t('noResultsYet') }}</div>
         } @else {
           @for (r of results(); track r.id) {
             <article class="card flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div class="font-semibold text-ink">{{ r.resultDate | date: 'd MMMM y' }}</div>
                 <div class="text-sm text-muted">
-                  Hb {{ r.hemoglobin ?? '—' }} · Ferritin {{ r.ferritin ?? '—' }} · BP
-                  {{ r.bloodPressure || '—' }} · {{ r.weight ?? '—' }} kg
+                  Hb {{ r.hemoglobin ?? '—' }} · {{ i18n.t('ferritin') }} {{ r.ferritin ?? '—' }} ·
+                  {{ i18n.t('bloodPressure') }} {{ r.bloodPressure || '—' }} · {{ r.weight ?? '—' }} kg
                 </div>
               </div>
             </article>
@@ -140,6 +141,7 @@ import { BloodResult } from '../../core/models/models';
 export class ResultsComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder);
+  readonly i18n = inject(I18nService);
 
   readonly results = signal<BloodResult[]>([]);
   readonly latest = signal<BloodResult | null>(null);
