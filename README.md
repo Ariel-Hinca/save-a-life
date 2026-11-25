@@ -64,7 +64,24 @@ npm install
 npm start
 ```
 
-App: [http://localhost:4200](http://localhost:4200)
+App (laptop): [http://localhost:4200](http://localhost:4200)
+
+`npm start` binds to all interfaces and proxies `/api` to the ASP.NET API on port 5000, so a phone on the same Wi‑Fi can use the app without editing IPs.
+
+### Test on your phone (same Wi‑Fi)
+
+1. Keep Docker + API + frontend running on your laptop.
+2. Find your laptop’s LAN IP:
+   - macOS/Linux: `ipconfig getifaddr en0` or `hostname -I`
+   - Windows: `ipconfig` → IPv4 address
+3. On your phone, open `http://<LAN-IP>:4200` (example: `http://192.168.1.42:4200`).
+4. Log in with the demo account below.
+
+Notes:
+
+- Phone and laptop must be on the same Wi‑Fi (guest/isolated networks often block this).
+- Allow Node through the OS firewall if the page does not load.
+- Live camera OCR may be blocked on plain HTTP; use **Upload image** on iPhone. Laptop camera still works on `localhost`.
 
 ## Demo account
 
