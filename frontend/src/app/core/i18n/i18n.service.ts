@@ -11,9 +11,9 @@ export class I18nService {
   readonly dict = computed(() => translations[this.langSignal()]);
 
   readonly options: { code: AppLang; label: string }[] = [
-    { code: 'en', label: 'English' },
-    { code: 'nl', label: 'Nederlands' },
-    { code: 'fr', label: 'Français' },
+    { code: 'en', label: 'ENG' },
+    { code: 'nl', label: 'NL' },
+    { code: 'fr', label: 'FR' },
   ];
 
   t(key: string): string {

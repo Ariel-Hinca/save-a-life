@@ -126,7 +126,7 @@ export class ShellComponent {
 
   readonly greeting = computed(() => {
     const user = this.auth.user();
-    return user ? `${this.i18n.t('welcomeBack')}, ${user.firstName}` : 'Donor';
+    return user ? `${this.i18n.t('welcomeBack')}, ${user.firstName}` : this.i18n.t('donor');
   });
 
   readonly nav = computed(() => [

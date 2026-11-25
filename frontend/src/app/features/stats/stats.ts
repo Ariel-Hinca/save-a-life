@@ -1,7 +1,18 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  afterNextRender,
+  inject,
+  signal,
+} from '@angular/core';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
-import { ApiService } from '../../core/services/api.service';
 import { LucideAward, LucideChartColumn, LucideHeartPulse, LucideTrophy } from '@lucide/angular';
+import { ApiService } from '../../core/services/api.service';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { StatsSummary } from '../../core/models/models';
 
 Chart.register(...registerables);
@@ -15,18 +26,23 @@ Chart.register(...registerables);
       <div>
         <h1 class="flex items-center gap-2 font-display text-3xl font-bold text-ink">
           <svg lucideChartColumn [size]="28" strokeWidth="2"></svg>
-          Statistics
+          {{ i18n.t('statistics') }}
         </h1>
-        <p class="text-muted">Visualize your donation journey and achievement progress.</p>
+        <p class="text-muted">{{ i18n.t('statsSubtitle') }}</p>
       </div>
 
       @if (loading()) {
-        <div class="card text-slate-500">Loading charts…</div>
+        <div class="card text-muted" role="status">{{ i18n.t('loadingCharts') }}</div>
+      } @else if (error()) {
+        <div class="state-box border-red-200 bg-red-50 text-red-800" role="alert">
+          {{ error() }}
+          <button class="btn-secondary mt-3" type="button" (click)="reload()">{{ i18n.t('tryAgain') }}</button>
+        </div>
       } @else if (stats(); as s) {
         <section class="grid gap-4 sm:grid-cols-3">
           <div class="card">
             <div class="mb-2 text-primary"><svg lucideTrophy [size]="18" strokeWidth="2"></svg></div>
-            <div class="text-xs text-muted">Level</div>
+            <div class="text-xs text-muted">{{ i18n.t('level') }}</div>
             <div class="font-display text-3xl font-bold text-ink">{{ s.donorLevel }}</div>
           </div>
           <div class="card">
@@ -36,34 +52,34 @@ Chart.register(...registerables);
           </div>
           <div class="card">
             <div class="mb-2 text-primary"><svg lucideHeartPulse [size]="18" strokeWidth="2"></svg></div>
-            <div class="text-xs text-muted">Lives helped</div>
+            <div class="text-xs text-muted">{{ i18n.t('livesHelped') }}</div>
             <div class="font-display text-3xl font-bold text-ink">{{ s.totalLivesHelped }}</div>
           </div>
         </section>
 
         <section class="grid gap-4 lg:grid-cols-2">
           <div class="card">
-            <h2 class="mb-4 font-semibold">Donations per year</h2>
+            <h2 class="mb-4 font-semibold">{{ i18n.t('donationsPerYear') }}</h2>
             <canvas #yearChart></canvas>
           </div>
           <div class="card">
-            <h2 class="mb-4 font-semibold">Donation types</h2>
+            <h2 class="mb-4 font-semibold">{{ i18n.t('donationTypesChart') }}</h2>
             <canvas #typeChart></canvas>
           </div>
           <div class="card lg:col-span-2">
-            <h2 class="mb-4 font-semibold">Total blood volume</h2>
+            <h2 class="mb-4 font-semibold">{{ i18n.t('totalBloodVolume') }}</h2>
             <canvas #volumeChart></canvas>
           </div>
         </section>
 
         <section class="card">
-          <h2 class="mb-4 font-semibold">Achievement progress</h2>
+          <h2 class="mb-4 font-semibold">{{ i18n.t('achievementProgress') }}</h2>
           <div class="space-y-4">
             @for (a of s.achievements; track a.code) {
               <div>
                 <div class="mb-1 flex items-center justify-between text-sm">
                   <span class="font-medium">{{ a.name }}</span>
-                  <span class="text-slate-500">{{ a.progressPercent }}%</span>
+                  <span class="text-muted">{{ a.progressPercent }}%</span>
                 </div>
                 <div class="h-3 overflow-hidden rounded-full bg-slate-100">
                   <div
@@ -72,7 +88,7 @@ Chart.register(...registerables);
                     [style.background]="a.unlocked ? '#16A34A' : '#DC2626'"
                   ></div>
                 </div>
-                <p class="mt-1 text-xs text-slate-500">{{ a.description }}</p>
+                <p class="mt-1 text-xs text-muted">{{ a.description }}</p>
               </div>
             }
           </div>
@@ -87,19 +103,34 @@ export class StatsComponent implements OnInit, OnDestroy {
   @ViewChild('volumeChart') volumeChartRef?: ElementRef<HTMLCanvasElement>;
 
   private readonly api = inject(ApiService);
+  private readonly injector = inject(Injector);
+  readonly i18n = inject(I18nService);
   private charts: Chart[] = [];
 
   readonly stats = signal<StatsSummary | null>(null);
   readonly loading = signal(true);
+  readonly error = signal('');
 
   ngOnInit(): void {
+    this.reload();
+  }
+
+  reload(): void {
+    this.loading.set(true);
+    this.error.set('');
     this.api.getStatsSummary().subscribe({
       next: (s) => {
+        this.destroyCharts();
         this.stats.set(s);
         this.loading.set(false);
-        setTimeout(() => this.renderCharts(s), 0);
+        // Wait until @if canvases exist — setTimeout(0) was racing the view.
+        afterNextRender(() => this.renderCharts(s), { injector: this.injector });
       },
-      error: () => this.loading.set(false),
+      error: () => {
+        this.loading.set(false);
+        this.stats.set(null);
+        this.error.set(this.i18n.t('loadStatsError'));
+      },
     });
   }
 
@@ -113,14 +144,14 @@ export class StatsComponent implements OnInit, OnDestroy {
           labels: s.donationsPerYear.map((x) => String(x.year)),
           datasets: [
             {
-              label: 'Donations',
+              label: this.i18n.t('chartDonations'),
               data: s.donationsPerYear.map((x) => x.count),
               backgroundColor: '#DC2626',
               borderRadius: 8,
             },
           ],
         },
-        options: { responsive: true, plugins: { legend: { display: false } } },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } },
       };
       this.charts.push(new Chart(this.yearChartRef.nativeElement, cfg));
     }
@@ -129,7 +160,7 @@ export class StatsComponent implements OnInit, OnDestroy {
       const cfg: ChartConfiguration = {
         type: 'pie',
         data: {
-          labels: s.donationTypes.map((x) => x.type),
+          labels: s.donationTypes.map((x) => this.donationTypeLabel(x.type)),
           datasets: [
             {
               data: s.donationTypes.map((x) => x.count),
@@ -137,7 +168,7 @@ export class StatsComponent implements OnInit, OnDestroy {
             },
           ],
         },
-        options: { responsive: true },
+        options: { responsive: true, maintainAspectRatio: true },
       };
       this.charts.push(new Chart(this.typeChartRef.nativeElement, cfg));
     }
@@ -149,7 +180,7 @@ export class StatsComponent implements OnInit, OnDestroy {
           labels: s.volumeOverTime.map((x) => x.label),
           datasets: [
             {
-              label: 'Cumulative liters',
+              label: this.i18n.t('cumulativeLiters'),
               data: s.volumeOverTime.map((x) => x.cumulativeLiters),
               borderColor: '#2563EB',
               backgroundColor: 'rgba(37, 99, 235, 0.15)',
@@ -158,10 +189,20 @@ export class StatsComponent implements OnInit, OnDestroy {
             },
           ],
         },
-        options: { responsive: true },
+        options: { responsive: true, maintainAspectRatio: true },
       };
       this.charts.push(new Chart(this.volumeChartRef.nativeElement, cfg));
     }
+  }
+
+  private donationTypeLabel(type: string): string {
+    const key = type.toLowerCase().replace(/\s+/g, '');
+    if (key.includes('whole') || key.includes('volbloed') || key.includes('sang')) return this.i18n.t('wholeBlood');
+    if (key.includes('plasma')) return this.i18n.t('plasma');
+    if (key.includes('platelet') || key.includes('plaatjes') || key.includes('plaquette')) {
+      return this.i18n.t('platelets');
+    }
+    return type;
   }
 
   private destroyCharts(): void {
