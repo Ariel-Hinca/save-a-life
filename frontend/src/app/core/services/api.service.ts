@@ -6,6 +6,7 @@ import {
   BloodResult,
   Donation,
   OcrScanResponse,
+  OcrStatus,
   StatsSummary,
   User,
 } from '../models/models';
@@ -49,6 +50,18 @@ export class ApiService {
       text,
       clientConfidence,
     });
+  }
+
+  extractDocument(imageBase64: string, mimeType?: string): Observable<OcrScanResponse> {
+    return this.http.post<OcrScanResponse>(`${this.base}/ocr/extract`, {
+      imageBase64,
+      mimeType,
+      allowDemoFallback: false,
+    });
+  }
+
+  getOcrStatus(): Observable<OcrStatus> {
+    return this.http.get<OcrStatus>(`${this.base}/ocr/status`);
   }
 
   getStatsSummary(): Observable<StatsSummary> {

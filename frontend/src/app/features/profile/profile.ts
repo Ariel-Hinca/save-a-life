@@ -2,17 +2,21 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/auth/auth.service';
+import { LucideTrophy, LucideUserRound } from '@lucide/angular';
 import { User } from '../../core/models/models';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, LucideUserRound, LucideTrophy],
   template: `
     <div class="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 class="text-3xl font-bold">Profile</h1>
-        <p class="text-slate-500">Keep your donor details up to date.</p>
+        <h1 class="flex items-center gap-2 font-display text-3xl font-bold text-ink">
+          <svg lucideUserRound [size]="28" strokeWidth="2"></svg>
+          Profile
+        </h1>
+        <p class="text-muted">Keep your donor details up to date.</p>
       </div>
 
       @if (user(); as u) {
@@ -21,9 +25,12 @@ import { User } from '../../core/models/models';
             {{ u.firstName.charAt(0) }}{{ u.lastName.charAt(0) }}
           </div>
           <div>
-            <div class="text-lg font-semibold">{{ u.firstName }} {{ u.lastName }}</div>
-            <div class="text-sm text-slate-500">Level {{ u.donorLevel }} · {{ u.xp }} XP</div>
-            <div class="text-sm text-slate-400">{{ u.email }}</div>
+            <div class="text-lg font-semibold text-ink">{{ u.firstName }} {{ u.lastName }}</div>
+            <div class="flex items-center gap-1 text-sm text-muted">
+              <svg lucideTrophy [size]="14" strokeWidth="2"></svg>
+              Level {{ u.donorLevel }} · {{ u.xp }} XP
+            </div>
+            <div class="text-sm text-muted">{{ u.email }}</div>
           </div>
         </div>
       }

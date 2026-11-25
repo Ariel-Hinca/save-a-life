@@ -1,6 +1,15 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import {
+  LucideAward,
+  LucideCalendarClock,
+  LucideDroplet,
+  LucideHeartPulse,
+  LucideClipboardList,
+  LucideScanLine,
+  LucideTrophy,
+} from '@lucide/angular';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { StatsSummary } from '../../core/models/models';
@@ -8,7 +17,18 @@ import { StatsSummary } from '../../core/models/models';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [RouterLink, DatePipe, DecimalPipe],
+  imports: [
+    RouterLink,
+    DatePipe,
+    DecimalPipe,
+    LucideScanLine,
+    LucideDroplet,
+    LucideCalendarClock,
+    LucideHeartPulse,
+    LucideTrophy,
+    LucideAward,
+    LucideClipboardList,
+  ],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-end justify-between gap-3">
@@ -17,8 +37,14 @@ import { StatsSummary } from '../../core/models/models';
           <h1 class="font-display text-3xl font-bold text-ink sm:text-4xl">Your donor dashboard</h1>
         </div>
         <div class="flex gap-2">
-          <a routerLink="/scan" class="btn-primary">Scan document</a>
-          <a routerLink="/donations" class="btn-secondary">Add donation</a>
+          <a routerLink="/scan" class="btn-primary inline-flex items-center gap-2">
+            <svg lucideScanLine [size]="16" strokeWidth="2"></svg>
+            Scan document
+          </a>
+          <a routerLink="/donations" class="btn-secondary inline-flex items-center gap-2">
+            <svg lucideDroplet [size]="16" strokeWidth="2"></svg>
+            Add donation
+          </a>
         </div>
       </div>
 
@@ -33,12 +59,18 @@ import { StatsSummary } from '../../core/models/models';
         <section class="overflow-hidden rounded-3xl bg-ink p-6 text-paper shadow-card">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="text-sm text-stone-300">Donor Level {{ s.donorLevel }}</p>
+              <div class="flex items-center gap-2 text-sm text-stone-300">
+                <svg lucideTrophy [size]="16" strokeWidth="2"></svg>
+                Donor Level {{ s.donorLevel }}
+              </div>
               <h2 class="mt-1 font-display text-4xl font-bold">{{ s.totalDonations }} donations</h2>
               <p class="mt-2 text-stone-300">{{ s.xp }} XP earned</p>
             </div>
             <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              <div class="text-xs uppercase tracking-wide text-stone-300">Next donation</div>
+              <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-stone-300">
+                <svg lucideCalendarClock [size]="14" strokeWidth="2"></svg>
+                Next donation
+              </div>
               <div class="mt-1 text-lg font-semibold">
                 {{ s.nextEligibleDonationDate ? (s.nextEligibleDonationDate | date: 'd MMMM y') : 'Eligible now' }}
               </div>
@@ -47,14 +79,17 @@ import { StatsSummary } from '../../core/models/models';
           </div>
           <div class="mt-6 grid grid-cols-3 gap-3">
             <div class="rounded-2xl bg-white/5 p-4">
+              <div class="mb-2 text-stone-300"><svg lucideHeartPulse [size]="18" strokeWidth="2"></svg></div>
               <div class="font-display text-2xl font-bold">{{ s.totalLivesHelped }}</div>
               <div class="text-xs text-stone-300">Lives impacted</div>
             </div>
             <div class="rounded-2xl bg-white/5 p-4">
+              <div class="mb-2 text-stone-300"><svg lucideDroplet [size]="18" strokeWidth="2"></svg></div>
               <div class="font-display text-2xl font-bold">{{ s.totalBloodVolumeLiters | number: '1.1-1' }}</div>
               <div class="text-xs text-stone-300">Liters donated</div>
             </div>
             <div class="rounded-2xl bg-white/5 p-4">
+              <div class="mb-2 text-stone-300"><svg lucideAward [size]="18" strokeWidth="2"></svg></div>
               <div class="font-display text-2xl font-bold">{{ unlockedCount(s) }}</div>
               <div class="text-xs text-stone-300">Badges unlocked</div>
             </div>
@@ -63,7 +98,10 @@ import { StatsSummary } from '../../core/models/models';
 
         <section class="grid gap-4 md:grid-cols-2">
           <div class="card">
-            <h3 class="font-display text-xl font-semibold text-ink">Recent achievements</h3>
+            <h3 class="flex items-center gap-2 font-display text-xl font-semibold text-ink">
+              <svg lucideAward [size]="18" strokeWidth="2"></svg>
+              Recent achievements
+            </h3>
             <div class="mt-4 space-y-3">
               @for (a of s.achievements.slice(0, 4); track a.code) {
                 <div class="flex items-center justify-between rounded-xl bg-surface px-3 py-3">
@@ -86,17 +124,26 @@ import { StatsSummary } from '../../core/models/models';
           <div class="card">
             <h3 class="font-display text-xl font-semibold text-ink">Quick actions</h3>
             <div class="mt-4 grid gap-3">
-              <a routerLink="/scan" class="rounded-xl border border-line p-4 transition hover:border-primary/40 hover:bg-red-50/40">
-                <div class="font-semibold text-ink">OCR Scan</div>
-                <div class="text-sm text-muted">Photograph your donation report</div>
+              <a routerLink="/scan" class="flex items-start gap-3 rounded-xl border border-line p-4 transition hover:border-primary/40 hover:bg-red-50/40">
+                <span class="icon-chip"><svg lucideScanLine [size]="18" strokeWidth="2"></svg></span>
+                <div>
+                  <div class="font-semibold text-ink">OCR Scan</div>
+                  <div class="text-sm text-muted">Photograph your donation report</div>
+                </div>
               </a>
-              <a routerLink="/results" class="rounded-xl border border-line p-4 transition hover:border-accent/40 hover:bg-teal-50/50">
-                <div class="font-semibold text-ink">Blood results</div>
-                <div class="text-sm text-muted">Follow hemoglobin, ferritin & more</div>
+              <a routerLink="/results" class="flex items-start gap-3 rounded-xl border border-line p-4 transition hover:border-accent/40 hover:bg-teal-50/50">
+                <span class="icon-chip"><svg lucideHeartPulse [size]="18" strokeWidth="2"></svg></span>
+                <div>
+                  <div class="font-semibold text-ink">Blood results</div>
+                  <div class="text-sm text-muted">Follow hemoglobin, ferritin & more</div>
+                </div>
               </a>
-              <a routerLink="/donations" class="rounded-xl border border-line p-4 transition hover:border-success/40 hover:bg-green-50/50">
-                <div class="font-semibold text-ink">Donation history</div>
-                <div class="text-sm text-muted">Review every visit and type</div>
+              <a routerLink="/donations" class="flex items-start gap-3 rounded-xl border border-line p-4 transition hover:border-success/40 hover:bg-green-50/50">
+                <span class="icon-chip"><svg lucideClipboardList [size]="18" strokeWidth="2"></svg></span>
+                <div>
+                  <div class="font-semibold text-ink">Donation history</div>
+                  <div class="text-sm text-muted">Review every visit and type</div>
+                </div>
               </a>
             </div>
           </div>
@@ -125,6 +172,7 @@ export class DashboardComponent implements OnInit {
       next: (s) => {
         this.stats.set(s);
         this.loading.set(false);
+        this.userName.set(this.auth.user()?.firstName || '');
       },
       error: () => {
         this.loading.set(false);

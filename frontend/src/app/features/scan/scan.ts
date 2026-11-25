@@ -1,29 +1,57 @@
-import { Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  NgZone,
+  OnDestroy,
+  ViewChild,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { createWorker, Worker } from 'tesseract.js';
+import { firstValueFrom } from 'rxjs';
+import { LucideCamera, LucideScanLine, LucideUpload } from '@lucide/angular';
 import { ApiService } from '../../core/services/api.service';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { OcrScanResponse } from '../../core/models/models';
+import {
+  mergeOcrResults,
+  normalizeOcrResponse,
+  parseBelgianRedCrossOcr,
+} from '../../core/services/belgian-ocr-parser';
+import { LanguageSwitcherComponent } from '../../shared/language-switcher';
 
 @Component({
   selector: 'app-scan',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, LucideCamera, LucideScanLine, LucideUpload, LanguageSwitcherComponent],
   template: `
     <div class="space-y-6">
-      <div>
-        <h1 class="text-3xl font-bold">OCR Scan</h1>
-        <p class="text-slate-500">Capture a Red Cross donation document and extract the details.</p>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 class="flex items-center gap-2 font-display text-3xl font-bold text-ink">
+            <svg lucideScanLine [size]="28" strokeWidth="2"></svg>
+            {{ i18n.t('scanTitle') }}
+          </h1>
+          <p class="max-w-2xl text-muted">{{ i18n.t('scanSubtitle') }}</p>
+        </div>
+        <app-language-switcher />
+      </div>
+
+      <div class="rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-accent">
+        {{ i18n.t('privacyNote') }}
       </div>
 
       <div class="grid gap-6 lg:grid-cols-2">
         <section class="card space-y-4">
-          <h2 class="font-semibold">1. Capture</h2>
-          <div class="overflow-hidden rounded-2xl bg-slate-900">
+          <h2 class="font-semibold text-ink">{{ i18n.t('capture') }}</h2>
+          <div class="overflow-hidden rounded-2xl bg-ink">
             <video #video autoplay playsinline class="aspect-video w-full object-cover" [class.hidden]="!cameraOn()"></video>
             <canvas #canvas class="hidden"></canvas>
             @if (!cameraOn() && !previewUrl()) {
-              <div class="flex aspect-video items-center justify-center text-sm text-slate-300">
-                Camera preview or uploaded image will appear here
+              <div class="flex aspect-video items-center justify-center px-4 text-center text-sm text-stone-300">
+                {{ i18n.t('previewHint') }}
               </div>
             }
             @if (previewUrl()) {
@@ -32,87 +60,115 @@ import { ApiService } from '../../core/services/api.service';
           </div>
 
           <div class="flex flex-wrap gap-2">
-            <button class="btn-primary" type="button" (click)="startCamera()" [disabled]="cameraOn()">
-              Open camera
+            <button class="btn-primary inline-flex items-center gap-2" type="button" (click)="startCamera()" [disabled]="cameraOn()">
+              <svg lucideCamera [size]="16" strokeWidth="2"></svg>
+              {{ i18n.t('openCamera') }}
             </button>
             <button class="btn-secondary" type="button" (click)="capture()" [disabled]="!cameraOn()">
-              Take picture
+              {{ i18n.t('takePicture') }}
             </button>
-            <label class="btn-secondary cursor-pointer">
-              Upload image
+            <label class="btn-secondary inline-flex cursor-pointer items-center gap-2">
+              <svg lucideUpload [size]="16" strokeWidth="2"></svg>
+              {{ i18n.t('uploadImage') }}
               <input class="hidden" type="file" accept="image/*" (change)="onFile($event)" />
             </label>
-            <button class="btn-accent" type="button" (click)="runOcr()" [disabled]="!imageSource() || processing()">
-              {{ processing() ? 'Analyzing…' : 'OCR Analysis' }}
+            <button
+              class="btn-accent inline-flex items-center gap-2"
+              type="button"
+              (click)="runExtract()"
+              [disabled]="!imageSource() || processing()"
+            >
+              <svg lucideScanLine [size]="16" strokeWidth="2"></svg>
+              {{ processing() ? i18n.t('analyzing') : i18n.t('ocrAnalysis') }}
             </button>
           </div>
 
           @if (status()) {
-            <p class="text-sm text-slate-500">{{ status() }}</p>
+            <p class="text-sm text-muted">{{ status() }}</p>
           }
           @if (rawText()) {
-            <details class="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
-              <summary class="cursor-pointer font-semibold">Raw OCR text</summary>
+            <details class="rounded-xl bg-surface p-3 text-xs text-muted">
+              <summary class="cursor-pointer font-semibold text-ink">{{ i18n.t('rawOcr') }}</summary>
               <pre class="mt-2 whitespace-pre-wrap">{{ rawText() }}</pre>
             </details>
           }
         </section>
 
         <section class="card">
-          <h2 class="font-semibold">2. Review & save</h2>
+          <h2 class="font-semibold text-ink">{{ i18n.t('reviewSave') }}</h2>
           <form class="mt-4 space-y-4" [formGroup]="form" (ngSubmit)="save()">
             <div>
-              <label class="label">Donation ID</label>
+              <label class="label">{{ i18n.t('donationId') }}</label>
               <input class="input" formControlName="donationReference" />
             </div>
             <div>
-              <label class="label">Donation Date</label>
+              <label class="label">{{ i18n.t('donationDate') }}</label>
               <input class="input" type="date" formControlName="donationDate" />
             </div>
             <div>
-              <label class="label">Donation Type</label>
+              <label class="label">{{ i18n.t('donationType') }}</label>
               <select class="input" formControlName="donationType">
-                <option>Whole Blood</option>
-                <option>Plasma</option>
-                <option>Platelets</option>
+                <option value="Whole Blood">{{ i18n.t('wholeBlood') }}</option>
+                <option value="Plasma">{{ i18n.t('plasma') }}</option>
+                <option value="Platelets">{{ i18n.t('platelets') }}</option>
               </select>
             </div>
             <div>
-              <label class="label">Donation Center</label>
+              <label class="label">{{ i18n.t('donationCenter') }}</label>
               <input class="input" formControlName="location" />
             </div>
-            <div class="rounded-xl bg-blue-50 px-3 py-2 text-sm text-accent">
-              Confidence: {{ confidence() }}%
+            <div class="rounded-xl bg-teal-50 px-3 py-2 text-sm text-accent">
+              {{ i18n.t('confidence') }}: {{ confidence() }}%
+              @if (detectedLang()) {
+                · {{ detectedLang().toUpperCase() }}
+              }
+              @if (method()) {
+                · {{ method() }}
+              }
             </div>
 
-            <div class="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
+            <div class="grid gap-3 border-t border-line pt-4 sm:grid-cols-2">
               <div>
-                <label class="label">Hemoglobin (optional)</label>
+                <label class="label">{{ i18n.t('hemoglobin') }} (g/dL)</label>
                 <input class="input" type="number" step="0.1" formControlName="hemoglobin" />
               </div>
               <div>
-                <label class="label">Ferritin (optional)</label>
+                <label class="label">{{ i18n.t('hematocrit') }} (%)</label>
+                <input class="input" type="number" step="0.1" formControlName="hematocrit" />
+              </div>
+              <div>
+                <label class="label">{{ i18n.t('ferritin') }}</label>
                 <input class="input" type="number" step="0.1" formControlName="ferritin" />
               </div>
               <div>
-                <label class="label">Blood pressure</label>
+                <label class="label">{{ i18n.t('bloodPressure') }}</label>
                 <input class="input" formControlName="bloodPressure" placeholder="122/80" />
               </div>
               <div>
-                <label class="label">Weight (kg)</label>
+                <label class="label">{{ i18n.t('weight') }}</label>
                 <input class="input" type="number" step="0.1" formControlName="weight" />
               </div>
             </div>
 
+            @if (notes()) {
+              <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <strong>{{ i18n.t('notes') }}:</strong> {{ notes() }}
+              </div>
+            }
+
             @if (error()) {
-              <div class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{{ error() }}</div>
+              <div class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+                {{ error() }}
+              </div>
             }
             @if (success()) {
-              <div class="rounded-xl bg-green-50 px-3 py-2 text-sm text-success">{{ success() }}</div>
+              <div class="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-success">
+                {{ success() }}
+              </div>
             }
 
             <button class="btn-primary w-full" type="submit" [disabled]="form.invalid || saving()">
-              {{ saving() ? 'Saving…' : 'Save donation' }}
+              {{ saving() ? i18n.t('saving') : i18n.t('saveDonation') }}
             </button>
           </form>
         </section>
@@ -127,9 +183,11 @@ export class ScanComponent implements OnDestroy {
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly zone = inject(NgZone);
+  private readonly cdr = inject(ChangeDetectorRef);
+  readonly i18n = inject(I18nService);
 
   private stream: MediaStream | null = null;
-  private worker: Worker | null = null;
 
   readonly cameraOn = signal(false);
   readonly previewUrl = signal<string | null>(null);
@@ -139,18 +197,22 @@ export class ScanComponent implements OnDestroy {
   readonly status = signal('');
   readonly rawText = signal('');
   readonly confidence = signal(0);
+  readonly detectedLang = signal('');
+  readonly method = signal('');
+  readonly notes = signal('');
   readonly error = signal('');
   readonly success = signal('');
 
-  readonly form = this.fb.nonNullable.group({
+  readonly form = this.fb.group({
     donationReference: [''],
     donationDate: [new Date().toISOString().slice(0, 10), Validators.required],
     donationType: ['Whole Blood', Validators.required],
     location: [''],
-    hemoglobin: ['' as string | number],
-    ferritin: ['' as string | number],
+    hemoglobin: this.fb.control<number | null>(null),
+    hematocrit: this.fb.control<number | null>(null),
+    ferritin: this.fb.control<number | null>(null),
     bloodPressure: [''],
-    weight: ['' as string | number],
+    weight: this.fb.control<number | null>(null),
   });
 
   async startCamera(): Promise<void> {
@@ -167,9 +229,9 @@ export class ScanComponent implements OnDestroy {
       }
       this.previewUrl.set(null);
       this.cameraOn.set(true);
-      this.status.set('Camera ready — capture your document.');
+      this.status.set(this.i18n.t('cameraReady'));
     } catch {
-      this.error.set('Camera access denied or unavailable. Upload an image instead.');
+      this.error.set(this.i18n.t('cameraDenied'));
     }
   }
 
@@ -185,7 +247,7 @@ export class ScanComponent implements OnDestroy {
     this.imageSource.set(dataUrl);
     this.previewUrl.set(dataUrl);
     this.stopCamera();
-    this.status.set('Picture captured. Run OCR analysis.');
+    this.status.set(this.i18n.t('pictureCaptured'));
   }
 
   onFile(event: Event): void {
@@ -198,53 +260,81 @@ export class ScanComponent implements OnDestroy {
       this.imageSource.set(result);
       this.previewUrl.set(result);
       this.stopCamera();
-      this.status.set('Image uploaded. Run OCR analysis.');
+      this.status.set(this.i18n.t('imageUploaded'));
     };
     reader.readAsDataURL(file);
   }
 
-  async runOcr(): Promise<void> {
+  async runExtract(): Promise<void> {
     const source = this.imageSource();
     if (!source) return;
     this.processing.set(true);
     this.error.set('');
-    this.status.set('Running Tesseract.js OCR…');
-    try {
-      if (!this.worker) {
-        this.worker = await createWorker('eng');
-      }
-      const result = await this.worker.recognize(source);
-      const text = result.data.text || '';
-      const conf = Math.round(result.data.confidence || 0);
-      this.rawText.set(text);
-      this.confidence.set(conf);
-      this.status.set('Parsing extracted fields…');
+    this.notes.set('');
+    this.status.set(this.i18n.t('tryingOrientations'));
 
-      this.api.parseOcr(text, conf).subscribe({
-        next: (parsed) => {
-          this.confidence.set(parsed.confidence || conf);
-          if (parsed.donationId) this.form.patchValue({ donationReference: parsed.donationId });
-          if (parsed.donationType) this.form.patchValue({ donationType: parsed.donationType });
-          if (parsed.center) this.form.patchValue({ location: parsed.center });
-          if (parsed.donationDate) {
-            const parts = parsed.donationDate.split('/');
-            if (parts.length === 3) {
-              const iso = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-              this.form.patchValue({ donationDate: iso });
-            }
-          }
-          this.status.set('Review the extracted information, then save.');
-          this.processing.set(false);
-        },
-        error: () => {
-          this.error.set('OCR parse API failed.');
-          this.processing.set(false);
-        },
+    try {
+      const mime = source.startsWith('data:')
+        ? source.slice(5, source.indexOf(';')) || 'image/jpeg'
+        : 'image/jpeg';
+
+      const remoteRaw = await firstValueFrom(this.api.extractDocument(source, mime));
+      const remote = normalizeOcrResponse(remoteRaw as unknown as Record<string, unknown>);
+      const local = parseBelgianRedCrossOcr(remote.rawText || '', remote.confidence || 0);
+      const parsed = mergeOcrResults(remote, local);
+
+      this.zone.run(() => {
+        this.rawText.set(parsed.rawText || remote.rawText || '');
+        this.method.set(parsed.extractionMethod || 'local-tesseract');
+        this.applyParsed(parsed, parsed.confidence || 0);
       });
     } catch {
-      this.error.set('OCR processing failed.');
-      this.processing.set(false);
+      this.zone.run(() => {
+        this.error.set(this.i18n.t('ocrFailed'));
+        this.processing.set(false);
+        this.cdr.detectChanges();
+      });
     }
+  }
+
+  private applyParsed(parsed: OcrScanResponse, fallbackConf: number): void {
+    this.confidence.set(parsed.confidence || fallbackConf);
+    this.detectedLang.set(parsed.detectedLanguage || '');
+    this.notes.set(parsed.notes || '');
+
+    const filledLabels: string[] = [];
+
+    const setCtrl = (name: string, value: string | number, label: string) => {
+      const ctrl = this.form.get(name);
+      if (!ctrl) return;
+      ctrl.setValue(value, { emitEvent: true });
+      ctrl.markAsDirty();
+      ctrl.markAsTouched();
+      filledLabels.push(label);
+    };
+
+    if (parsed.donationId) setCtrl('donationReference', parsed.donationId, 'reference');
+    if (parsed.donationType) setCtrl('donationType', parsed.donationType, 'type');
+    if (parsed.center) setCtrl('location', parsed.center, 'center');
+    if (parsed.donationDate) {
+      const iso = toIsoDate(parsed.donationDate);
+      if (iso) setCtrl('donationDate', iso, 'date');
+    }
+    if (parsed.hemoglobin != null) setCtrl('hemoglobin', Number(parsed.hemoglobin), 'hemoglobin');
+    if (parsed.hematocrit != null) setCtrl('hematocrit', Number(parsed.hematocrit), 'hematocrit');
+    if (parsed.ferritin != null) setCtrl('ferritin', Number(parsed.ferritin), 'ferritin');
+    if (parsed.bloodPressure) setCtrl('bloodPressure', parsed.bloodPressure, 'blood pressure');
+    if (parsed.weight != null) setCtrl('weight', Number(parsed.weight), 'weight');
+
+    this.form.updateValueAndValidity({ emitEvent: true });
+    this.cdr.detectChanges();
+
+    this.status.set(
+      filledLabels.length > 0
+        ? `${this.i18n.t('reviewThenSave')} (${filledLabels.length}: ${filledLabels.join(', ')})`
+        : this.i18n.t('reviewThenSave')
+    );
+    this.processing.set(false);
   }
 
   save(): void {
@@ -253,29 +343,30 @@ export class ScanComponent implements OnDestroy {
     this.error.set('');
     this.success.set('');
     const value = this.form.getRawValue();
+    const donationDate = value.donationDate || new Date().toISOString().slice(0, 10);
     this.api
       .createDonation({
-        donationDate: new Date(value.donationDate).toISOString(),
-        donationType: value.donationType,
-        location: value.location,
-        donationReference: value.donationReference,
+        donationDate: new Date(donationDate).toISOString(),
+        donationType: value.donationType || 'Whole Blood',
+        location: value.location || '',
+        donationReference: value.donationReference || '',
         status: 'Successful',
       })
       .subscribe({
         next: () => {
           const hasResults =
-            value.hemoglobin !== '' ||
-            value.ferritin !== '' ||
+            value.hemoglobin != null ||
+            value.ferritin != null ||
             !!value.bloodPressure ||
-            value.weight !== '';
+            value.weight != null;
           if (hasResults) {
             this.api
               .createBloodResult({
-                resultDate: new Date(value.donationDate).toISOString(),
-                hemoglobin: value.hemoglobin === '' ? null : Number(value.hemoglobin),
-                ferritin: value.ferritin === '' ? null : Number(value.ferritin),
+                resultDate: new Date(donationDate).toISOString(),
+                hemoglobin: value.hemoglobin,
+                ferritin: value.ferritin,
                 bloodPressure: value.bloodPressure || null,
-                weight: value.weight === '' ? null : Number(value.weight),
+                weight: value.weight,
               })
               .subscribe({
                 next: () => this.finishSave(),
@@ -287,14 +378,14 @@ export class ScanComponent implements OnDestroy {
         },
         error: () => {
           this.saving.set(false);
-          this.error.set('Could not save donation.');
+          this.error.set(this.i18n.t('saveFailed'));
         },
       });
   }
 
   private finishSave(): void {
     this.saving.set(false);
-    this.success.set('Donation saved successfully.');
+    this.success.set(this.i18n.t('savedOk'));
     setTimeout(() => void this.router.navigateByUrl('/donations'), 700);
   }
 
@@ -306,6 +397,16 @@ export class ScanComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopCamera();
-    void this.worker?.terminate();
   }
 }
+
+function toIsoDate(value: string): string | null {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const parts = trimmed.split(/[/.-]/);
+  if (parts.length !== 3) return null;
+  let [d, m, y] = parts;
+  if (y.length === 2) y = `20${y}`;
+  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+}
+
